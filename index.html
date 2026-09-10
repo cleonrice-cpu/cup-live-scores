@@ -420,23 +420,24 @@ body.tv .tie{background:var(--panel)}
 .cth b{font-size:clamp(13px,4.2cqw,24px)}
 .cth .st{padding:.35em .6em;border-radius:6px;background:rgba(245,244,240,.08)}
 .cth .st.play{background:rgba(235,47,123,.16);color:var(--pink)} .cth .st.done{color:var(--mute)} .cth .st.wait{color:var(--dim)}
-.crt{margin:var(--sp-2);border-radius:10px;--mix:24%;flex:1}
+.crt{margin:var(--sp-2);border-radius:10px;--mix:100%;flex:1}   /* the brand hue itself, not a tint */
 .sd{align-items:flex-start;justify-content:flex-start;text-align:left;gap:.15em;
     padding:var(--sp-2) var(--sp-3) var(--sp-2);
     background:color-mix(in srgb, var(--tc) var(--mix), var(--card))}
-.sd::before{content:"";position:absolute;inset:0;border:2px solid color-mix(in srgb, var(--tc) 55%, transparent);
+.sd::before{content:"";position:absolute;inset:0;border:2px solid rgba(0,0,0,.18);
             border-radius:10px 0 0 10px;pointer-events:none}
 .sd.r::before{border-radius:0 10px 10px 0}
-.sd::after{content:"";position:absolute;left:0;right:0;top:56%;border-top:1.5px dashed color-mix(in srgb, var(--tc) 45%, transparent)}
-.sd.r{border-left:3px solid var(--ink);align-items:flex-end;text-align:right}
+.sd::after{content:"";position:absolute;left:0;right:0;top:56%;border-top:1.5px dashed rgba(13,14,18,.35)}
+.sd.r{border-left:3px solid var(--cream);align-items:flex-end;text-align:right}
 .edge{position:relative;inset:auto;writing-mode:horizontal-tb;transform:none;display:block;
-      font-size:var(--f-edge);letter-spacing:.2em;color:var(--tc);opacity:1;margin-bottom:.35em;z-index:1}
-.sd .pn{text-transform:none;letter-spacing:-.005em;color:var(--ink);font-family:var(--dsp);font-weight:700;line-height:1.15}
+      font-size:var(--f-edge);letter-spacing:.2em;color:var(--fg,#0d0e12);opacity:.8;margin-bottom:.35em;z-index:1}
+.sd .pn{text-transform:none;letter-spacing:-.005em;color:var(--fg,#0d0e12);font-family:var(--dsp);font-weight:700;line-height:1.15}
 .sd .pn.none{letter-spacing:.2em;opacity:.3}
-.sd .g{margin-top:auto;align-self:flex-end;color:var(--ink);padding-top:.15em}
+.sd .g{margin-top:auto;align-self:flex-end;color:var(--fg,#0d0e12);padding-top:.15em}
 .sd.r .g{align-self:flex-start}
-.sd.lost .pn,.sd.lost .edge{opacity:.5}
-.sd.tbd .g{opacity:.22}
+.sd.lost .pn,.sd.lost .edge{opacity:.45}
+.sd.lost .g{opacity:.45}
+.sd.tbd .g{opacity:.5}
 .crt{--f-score:clamp(40px,19cqw,90px);--f-edge:clamp(10px,3.4cqw,14px);--f-pn:clamp(13px,6.6cqw,28px)}
 @media (min-width:900px){
   body.kiosk .crt{--f-score:min(clamp(40px,19cqw,90px), calc(var(--k)*4.6));
@@ -640,7 +641,7 @@ async function sbRpc(fn, body, ms){
   }finally{ a.done(); }
 }
 
-const D = {"teams": [{"name": "Sexy Fries", "cap": "Danny", "short": "FRIES", "c": "#efca2c", "tc": "#efca2c", "tcd": "#efca2c", "fg": "#0d0e12"}, {"name": "Punjabi 69ers", "cap": "Niladri", "short": "69ERS", "c": "#eb2f7b", "tc": "#eb2f7b", "tcd": "#eb2f7b", "fg": "#FFFFFF"}, {"name": "Deconstructed Samosas", "cap": "Carolyn", "short": "SAMOSAS", "c": "#e86223", "tc": "#e86223", "tcd": "#e86223", "fg": "#FFFFFF"}, {"name": "Naughty Naans", "cap": "Dennis", "short": "NAANS", "c": "#69bce7", "tc": "#69bce7", "tcd": "#69bce7", "fg": "#0d0e12"}], "lines": [[["Matteo Leonforte", "Adelio de Campos Junior", "Teel Gomez", "Akash Kapoor"], ["Cinji Lee", "Daniel Miranda", "Arjun Tyagi", "Lena Mendelson"], ["Nick Corposki", "Varun Saboo", "Jennifer Alvarez", "Anand P"]], [["Rohan Rajagopalan", "Abhi Ramachandiran", "Luke deWilde", "Sunny Haar"], ["Asang Mehta", "Ege Ozgirin", "Niladri Saha", "Gwen Lu"], ["Vihaan PH", "Shriram Bagavathyappan", "Bryan", "Maria Castillo"]], [["Jai Prasad", "William Fu", "Cleon Rice", "Michael Barskii"], ["Carolyn Yang", "Eli Sigal", "Anton Medvedev", "Marcus Arnold"], ["Vinayak Prabhakar", "Michael Sinitsky", "Brandon Reich", "Smarak Pattnaik"]], [["Neil Thanawala", "Jason Hsu", "Kay Kay Shreyas", "Sergey Burykin"], ["Ben Clemes", "Christina Minju", "Alex Lipkin", "Simran Singh"], ["Tony Chenhansa", "Dennis Park", "Aranya Ram", "Akhil Kumar"]]], "rounds": [[[3, 0], [1, 2]], [[3, 1], [0, 2]], [[3, 2], [0, 1]], [[1, 2], [3, 0]], [[0, 2], [3, 1]], [[0, 1], [3, 2]], [[3, 0], [1, 2]], [[3, 1], [0, 2]], [[3, 2], [0, 1]]]};
+const D = {"teams": [{"name": "Sexy Fries", "cap": "Danny", "short": "FRIES", "c": "#efca2c", "tc": "#efca2c", "tcd": "#efca2c", "fg": "#0d0e12"}, {"name": "Punjabi 69ers", "cap": "Niladri", "short": "69ERS", "c": "#eb2f7b", "tc": "#eb2f7b", "tcd": "#eb2f7b", "fg": "#0d0e12"}, {"name": "Deconstructed Samosas", "cap": "Carolyn", "short": "SAMOSAS", "c": "#e86223", "tc": "#e86223", "tcd": "#e86223", "fg": "#0d0e12"}, {"name": "Naughty Naans", "cap": "Dennis", "short": "NAANS", "c": "#69bce7", "tc": "#69bce7", "tcd": "#69bce7", "fg": "#0d0e12"}], "lines": [[["Matteo Leonforte", "Adelio de Campos Junior", "Teel Gomez", "Akash Kapoor"], ["Cinji Lee", "Daniel Miranda", "Arjun Tyagi", "Lena Mendelson"], ["Nick Corposki", "Varun Saboo", "Jennifer Alvarez", "Anand P"]], [["Rohan Rajagopalan", "Abhi Ramachandiran", "Luke deWilde", "Sunny Haar"], ["Asang Mehta", "Ege Ozgirin", "Niladri Saha", "Gwen Lu"], ["Vihaan PH", "Shriram Bagavathyappan", "Bryan", "Maria Castillo"]], [["Jai Prasad", "William Fu", "Cleon Rice", "Michael Barskii"], ["Carolyn Yang", "Eli Sigal", "Anton Medvedev", "Marcus Arnold"], ["Vinayak Prabhakar", "Michael Sinitsky", "Brandon Reich", "Smarak Pattnaik"]], [["Neil Thanawala", "Jason Hsu", "Kay Kay Shreyas", "Sergey Burykin"], ["Ben Clemes", "Christina Minju", "Alex Lipkin", "Simran Singh"], ["Tony Chenhansa", "Dennis Park", "Aranya Ram", "Akhil Kumar"]]], "rounds": [[[3, 0], [1, 2]], [[3, 1], [0, 2]], [[3, 2], [0, 1]], [[1, 2], [3, 0]], [[0, 2], [3, 1]], [[0, 1], [3, 2]], [[3, 0], [1, 2]], [[3, 1], [0, 2]], [[3, 2], [0, 1]]]};
 const T = D.teams, LN = D.lines, RNDS = D.rounds;
 /* Nine round-robin rounds (three complete cycles - every pair meets exactly
    three times), then the final as round 10. All four squads play round 10:
