@@ -551,6 +551,23 @@ body.kiosk #rail{gap:var(--sp-3)}
 /* court header: label + number */
 .cth b small{font-family:var(--body);font-size:var(--l-micro);letter-spacing:.18em;text-transform:uppercase;color:var(--mute);font-weight:700;margin-right:.45em;vertical-align:.2em}
 .cth b{font-size:clamp(16px,5.2cqw,30px)}
+
+/* ── light view ── */
+html.light{
+  --cream:#f6f4ee; --panel:#ffffff; --card:#f0ede6; --tint:#e6e2d9;
+  --ink:#141413; --char:#141413; --mute:rgba(20,20,19,.62); --dim:rgba(20,20,19,.4);
+  --line:rgba(20,20,19,.12); color-scheme:light;
+}
+html.light .cth .st{background:var(--tint)}
+html.light .cth .st.play{background:rgba(235,47,123,.14)}
+html.light .sd.r{border-left-color:#ffffff}
+html.light .sd::before{border-color:rgba(0,0,0,.12)}
+html.light .tvr.top{outline-color:#8a6a00}
+html.light .flab,html.light .finb,html.light .res .big,html.light .meR.w .meRs em{color:#8a6a00}
+html.light .ov{background:rgba(20,20,19,.5)}
+html.light .tvq img{border:1px solid var(--line)}
+html.light .top img{filter:none}
+body.kiosk #themeBtn{display:none}
 </style>
 </head>
 <body>
@@ -560,6 +577,7 @@ body.kiosk #rail{gap:var(--sp-3)}
   <span class="wordmark">Curry Up Now Cup<small>Park Padel &middot; South San Francisco</small></span>
   <span class="sp"></span>
   <button class="tbtn" id="findBtn">Find me</button>
+  <button class="tbtn" id="themeBtn" aria-label="Switch light or dark view">Light</button>
   <button class="tbtn" id="modeBtn" hidden="">Scoring</button>
   <button class="tbtn" id="showBtn" hidden>Team show</button>
   <button class="tbtn" id="deckBtn" hidden>Decks</button>
@@ -801,6 +819,28 @@ function lineInfo(ti,l){
   return {four, slots, cnt, pairs, openR, fiveOK, pairOK, maxSit};
 }
 
+/* ── light / dark ── */
+const TEXT_LIGHT = {"#efca2c":"#8a6a00", "#e86223":"#b8440c", "#eb2f7b":"#c8145f", "#69bce7":"#1e6f9c"};
+T.forEach(function(t){ t.tdark=t.tcd; t.tlight=TEXT_LIGHT[t.c.toLowerCase()]||t.tcd; });
+let themeName="dark";
+function applyTheme(name, save){
+  themeName = name==="light" ? "light" : "dark";
+  document.documentElement.classList.toggle("light", themeName==="light");
+  T.forEach(function(t){ t.tcd = themeName==="light" ? t.tlight : t.tdark; });
+  const b=$("themeBtn"); if(b) b.textContent = themeName==="light" ? "Dark" : "Light";
+  if(save){ try{ localStorage.setItem("cupTheme", themeName); }catch(e){} }
+}
+(function(){
+  let t=null;
+  if(/\blight\b/i.test(location.hash+location.search)) t="light";
+  else if(/\bdark\b/i.test(location.hash+location.search)) t="dark";
+  else { try{ t=localStorage.getItem("cupTheme"); }catch(e){} }
+  applyTheme(t||"dark", false);
+})();
+document.addEventListener("click", function(e){
+  if(e.target && e.target.id==="themeBtn"){ applyTheme(themeName==="light"?"dark":"light", true); render(); }
+});
+
 /* ── render ── */
 function render(){
   if(view===null) view=LIVE();
@@ -919,7 +959,7 @@ function nextUp(){
   [[0,m0],[1,m1]].forEach(function(x){ const t=x[0], m=x[1];
     for(let l=0;l<3;l++){ const c=t*3+l+1, p=lu(n,c);
       const side=function(i){ const ti=m[i], pr=p[i];
-        return '<div><span class="nsq" style="color:'+T[ti].c+'">'+esc(T[ti].short)+'</span>'+
+        return '<div><span class="nsq" style="color:'+T[ti].tcd+'">'+esc(T[ti].short)+'</span>'+
           (pr.length? pr.map(sn).map(esc).join(" &amp; ") : '<span class="tbd">line-up tbc</span>')+'</div>'; };
       cards+='<div class="nc"><b>Court '+cn(c)+'</b>'+side(0)+side(1)+'</div>';
     } });
@@ -933,13 +973,13 @@ function ties(){
     h+='<section class="tie">';
     if(r===FINALS) h+='<div class="finb">'+(t===0?"Cup Final":"Third place")+'</div>';
     h+='<div class="th">'+
-      '<span class="na sq" style="--sqc:'+T[m[0]].tcd+'">'+
+      '<span class="na sq" style="--sqc:'+T[m[0]].c+'">'+
         '<span class="lg">'+esc(T[m[0]].name)+'</span><span class="sm">'+esc(T[m[0]].short)+'</span></span>'+
       '<span class="scores">'+
         '<span class="tsc a" style="color:'+T[m[0]].tcd+'">'+A+'</span>'+
         '<span class="tdash">&ndash;</span>'+
         '<span class="tsc b" style="color:'+T[m[1]].tcd+'">'+B+'</span></span>'+
-      '<span class="nb sq" style="--sqc:'+T[m[1]].tcd+'">'+
+      '<span class="nb sq" style="--sqc:'+T[m[1]].c+'">'+
         '<span class="lg">'+esc(T[m[1]].name)+'</span><span class="sm">'+esc(T[m[1]].short)+'</span></span>'+
       '</div><div class="cts">';
     for(let l=0;l<3;l++) h+=court(r,t,l,m,L);
@@ -1017,12 +1057,12 @@ function railTV(){
   const rows=table(), mv=mvp().slice(0,5);
   let h='<div class="tvc"><div class="tvh">Standings<span>games won</span></div><div class="tvs">';
   rows.forEach(function(x,i){ const t=T[x.i];
-    h+='<div class="tvr'+(i===0&&x.gf?" top":"")+'" style="--c:'+t.tcd+'"><span class="pos n">'+(i+1)+'</span><i></i>'+
+    h+='<div class="tvr'+(i===0&&x.gf?" top":"")+'" style="--c:'+t.c+'"><span class="pos n">'+(i+1)+'</span><i></i>'+
        '<span class="nm">'+esc(t.name)+'<small>Ties '+x.tw+'&ndash;'+x.tl+(x.td?'&ndash;'+x.td:'')+' &middot; '+(x.d>=0?'+':'&minus;')+Math.abs(x.d)+' games</small></span>'+
        '<span class="gw n">'+x.gf+'<small>games</small></span></div>'; });
   h+='</div></div><div class="tvc"><div class="tvh">MVP race<span>games won</span></div><div class="tvm">';
   if(!mv.length) h+='<div class="tvnote">Fills in as courts are scored.</div>';
-  mv.forEach(function(x,i){ h+='<div class="tvmr" style="--c:'+T[x.ti].tcd+'"><span class="pos n">'+(i+1)+'</span><i></i>'+
+  mv.forEach(function(x,i){ h+='<div class="tvmr" style="--c:'+T[x.ti].c+'"><span class="pos n">'+(i+1)+'</span><i></i>'+
        '<span class="nm">'+esc(sn(x.n))+'<small>'+esc(T[x.ti].short)+' &middot; '+x.ct+' played</small></span><span class="g n">'+x.gf+'</span></div>'; });
   h+='</div></div><div class="tvc tvq"><img alt="QR code for the live scores" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAANIAAADSCAIAAACw+wkVAAAEvElEQVR4nO3du45UORSGUUATDwHv/4gEMy/QZCSnJCzL9udq1gpRnUtX/bK02b58/fj4+AJnfatfgL+R2BEQOwJiR0DsCPzz/Kd/v/84/x6//f/fzz9+ZuQNn/eZu2ru6SPm3nDkPk+3/aZGOwJiR0DsCIgdAbEj8KKSfRqpleasqt1WVWqrauS56nLue567T/ubGu0IiB0BsSMgdgTEjsBQJfu0r3s496y52m1VBTrymVW17ar6d+TpI+aebrQjIHYExI6A2BEQOwKTlWxr37zctr+5r9d8G6MdAbEjIHYExI6A2BF4y0r2aa4GXNUDnesa73vW/Yx2BMSOgNgREDsCYkdgspLdt8pyxKoZtu1s59vWt578TY12BMSOgNgREDsCYkdgqJK9rQ+4r5u5r0u7bzenfat99zHaERA7AmJHQOwIiB2Br/efJ7uqB3ryWe+449NJRjsCYkdA7AiIHQGxI/Cikm1Xa97fTzx5Cs9tpxSNPGuE0Y6A2BEQOwJiR0DsCAxVsiPaWa+39SVXVY4nv9V99e/zzkY7AmJHQOwIiB0BsSPwYp3svn2Q5q76e3aXej5rX7d37qpVv5fRjoDYERA7AmJHQOwITPZk2/2LPusq1H396NtmjBvtCIgdAbEjIHYExI7A0I5P9/f49jnZFR25z5x9M5DnGO0IiB0BsSMgdgTEjsCydbIj2s7pyR2WRpys9NuTevRkuYLYERA7AmJHQOwIDJ0n+7Rq1eeIk1c9nay+b+vkzrFOlkuJHQGxIyB2BMSOwOTs4hH7ZgXftpr1/pOD9nEKD29D7AiIHQGxIyB2BF70ZNsZtnPPOvnO+3qpqzq5c3cesapDbbQjIHYExI6A2BEQOwJDs4vn6qB9azxH7jP3hqveZ9WM6NvOk11VsxvtCIgdAbEjIHYExI7Ash2f3nFv3n0n0Zzc33juzvv+f8A6WS4ldgTEjoDYERA7AkfXybb9xJGr5p4+p92p+OS6XbOLuYLYERA7AmJHQOwILJtd3PZk52q3fetbR+z7Dvftf7WqIjbaERA7AmJHQOwIiB2BZTs+zd3nZI18W//35Ek9J7/VkW/DaEdA7AiIHQGxIyB2BIbWyZ6cm3py/96nk/OoP+tZQtbJcimxIyB2BMSOgNgRGJpdPGJfdbnKyR7x3Gfatav7/tInox0BsSMgdgTEjoDYEZjsyT7t2/V3XwV6srM853P8FU9GOwJiR0DsCIgdAbEj8KIne3LXo5PecQVuuwPVyGfm/g/BaEdA7AiIHQGxIyB2BDbu+DRnbmekfTs1jdznaVUv9eTezqtYJ8ulxI6A2BEQOwJiR2DyFJ5VTvYBT2rPJHo62aUdebrRjoDYERA7AmJHQOwITO74tK+bucptZwDte/pch3qO82R5Y2JHQOwIiB0BsSOwbO/i2+zbOWrkqpN7ZI247X2MdgTEjoDYERA7AmJH4C0r2VVzkke0uxCfPCd37n2cwsPbEDsCYkdA7AiIHYHJSvbkPOGTJ+ysWpN7cjenuTu3p9ka7QiIHQGxIyB2BMSOwNB5sietqhxXzRMecXJPqlUrlNsziYx2BMSOgNgREDsCYkfgRSULuxntCIgdAbEjIHYExI7AL5Ik+LWm7NM9AAAAAElFTkSuQmCC">'+
      '<div><b>Follow on your phone</b>scan for live scores &amp; your next court</div></div>';
