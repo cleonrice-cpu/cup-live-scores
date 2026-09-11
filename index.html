@@ -662,7 +662,7 @@ body.phone #findBtn{display:none}
   <button class="tbtn" id="findBtn">Find me</button>
   <button class="tbtn" id="themeBtn" aria-label="Switch light or dark view">Light</button>
   <button class="tbtn" id="modeBtn" hidden="">Scoring</button>
-  <button class="tbtn" id="showBtn" hidden>Team show</button>
+  
   <button class="tbtn" id="deckBtn" hidden>Decks</button>
   <button class="tbtn" id="tvBtn" hidden="">TV mode &middot; exit</button>
   <span class="hpill" id="hpill"></span><span class="hclock n" id="hclock"></span><span class="live"><i id="dot"></i><span id="conn">connecting</span></span>
@@ -1002,7 +1002,7 @@ function bar2(){
     (view!==L?'<button id="toLive">Jump to live</button>':'')+
     '<button class="'+(pinLocal?"pri":"")+'" id="pinBtn">'+(pinLocal?"Pinned · unpin":"Pin this round")+'</button>'+
     '<button class="'+(state.st===1?"on":"")+'" id="stBtn">Sit-outs: max '+state.st+' in a row</button>'+
-    '<button class="'+(state.show?"on":"")+'" id="tvShowBtn">TV team show: '+(state.show?"on":"off")+'</button>'+
+    
     (state.st===1 ? '<span class="lb" style="color:var(--pink)">locks alternating pairs &middot; captains stop choosing</span>'
                   : '<button class="'+(state.pr?"on":"")+'" id="prBtn">All six pairs: '+(state.pr?"required":"off")+'</button>');
 }
@@ -1673,10 +1673,7 @@ function applyRosterDoc(d){
     if(ns!==rosterSig){ roster = nf; rosterSig = ns; DECK_KEYS.forEach(applyRoster); }
   }catch(e){}
 }
-function wantShow(){ /* cup-noshow: the TV stays on the live board */
-  if(/show/i.test(location.hash+location.search)) return true;
-  return showLocal==="1";
-}
+function wantShow(){ return false; } /* cup-nocards: no player cards on the board, ever */
 function deckDoc(k){
   const el = $("deckdoc-"+k); if(!el) return null;
   const st = deckState[k] || {photos:{}, facts:{}};
@@ -1738,7 +1735,7 @@ function step(){
 }
 function syncShow(){
   const want = editing ? false : wantShow();
-  const b=$("showBtn"); if(b){ b.classList.toggle("on", showOn); b.hidden = (canWrite&&scoring) || editing || innerWidth<1000; }
+  
   if(want===showOn) return;
   showOn = want;
   clearTimeout(showTimer);
