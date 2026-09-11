@@ -1658,7 +1658,7 @@ let roster = (function(){ try{ return JSON.parse($("roster-state").textContent).
 let rosterSig = JSON.stringify(roster);
 const frames = {};
 let showOn = false, showTimer = null, showLocal = null;
-try{ showLocal = localStorage.getItem("cupShow"); }catch(e){}
+/* cup-noshow: not remembered across reloads */
 
 function deckApi(k){ try{ return frames[k] && frames[k].contentWindow.__api || null; }catch(e){ return null; } }
 function applyRoster(k){
@@ -1673,12 +1673,9 @@ function applyRosterDoc(d){
     if(ns!==rosterSig){ roster = nf; rosterSig = ns; DECK_KEYS.forEach(applyRoster); }
   }catch(e){}
 }
-function wantShow(){
+function wantShow(){ /* cup-noshow: the TV stays on the live board */
   if(/show/i.test(location.hash+location.search)) return true;
-  if(showLocal==="1") return true;
-  if(showLocal==="0") return false;
-  /* a signed-in TV (the only kind that follows "Latest" on a public link) counts too - just not the scoring console */
-  return state.show===true && !scoring && innerWidth>=1000;
+  return showLocal==="1";
 }
 function deckDoc(k){
   const el = $("deckdoc-"+k); if(!el) return null;
@@ -1750,11 +1747,11 @@ function syncShow(){
 }
 document.addEventListener("click", function(e){
   if(e.target.id==="showBtn" || (e.target.id==="show" && !editing)){ showLocal = showOn ? "0" : "1";   /* a tap on the show itself stops it */
-    try{ localStorage.setItem("cupShow", showLocal); }catch(x){} syncShow(); }
+    syncShow(); }
   if(e.target.id==="tvShowBtn" && canWrite){ state.show = !state.show; touch(); }
 });
 addEventListener("hashchange", syncShow);
-addEventListener("keydown", function(e){ if(e.key==="Escape" && showOn){ showLocal="0"; try{ localStorage.setItem("cupShow","0"); }catch(x){} syncShow(); } });
+addEventListener("keydown", function(e){ if(e.key==="Escape" && showOn){ showLocal="0"; syncShow(); } });
 
 /* ── Decks editor ─────────────────────────────────────────────────────────
    The four team decks live INSIDE this page. With a PIN: "Decks" opens each
@@ -1766,7 +1763,7 @@ let editing = false, editKey = null;
 function killFrames(){ const b=$("show"); if(b) b.remove(); Object.keys(frames).forEach(function(k){ delete frames[k]; }); }
 function openEditor(key, idx){
   if(!canWrite) return;
-  if(showOn){ showLocal="0"; try{ localStorage.setItem("cupShow","0"); }catch(x){} syncShow(); }
+  if(showOn){ showLocal="0"; syncShow(); }
   editing = true; editKey = key || DECK_KEYS[0]; killFrames(); ensureFrames();
   const box=$("show");
   const bar=document.createElement("div"); bar.id="dbar";
