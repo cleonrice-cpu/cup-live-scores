@@ -781,6 +781,7 @@ function cn(c){ return CNUM[c] || c; }
 
 function $(i){ return document.getElementById(i); }
 function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+const FREE_PICK=true;   /* captains pick anyone: no greyed-out names */
 function sn(n){ if(DISPLAY[n]) return DISPLAY[n];
   const p=n.trim().split(/\s+/); return p.length>1 ? p[0]+" "+p[p.length-1][0]+"." : p[0]; }
 
@@ -1021,10 +1022,7 @@ function bar2(){
   $("bar2").innerHTML='<span class="lb">Entering round '+(view===FINALS?"F":(view+1))+'</span>'+
     (view!==L?'<button id="toLive">Jump to live</button>':'')+
     '<button class="'+(pinLocal?"pri":"")+'" id="pinBtn">'+(pinLocal?"Pinned · unpin":"Pin this round")+'</button>'+
-    '<button class="'+(state.st===1?"on":"")+'" id="stBtn">Sit-outs: max '+state.st+' in a row</button>'+
-    
-    (state.st===1 ? '<span class="lb" style="color:var(--pink)">locks alternating pairs &middot; captains stop choosing</span>'
-                  : '<button class="'+(state.pr?"on":"")+'" id="prBtn">All six pairs: '+(state.pr?"required":"off")+'</button>');
+    '<span class="lb">Any line-up allowed &middot; counts are for reference</span>';
 }
 
 /* The team name runs up the side of the court, so its size is bounded by the
@@ -1144,7 +1142,7 @@ function chips(r,c,side,ti,l){
   four.forEach(n=>{
     const on=p.indexOf(n)>=0;
     let dis=false, why="";
-    if(!on && info.fiveOK){
+    if(!FREE_PICK && !on && info.fiveOK){
       const next=p.slice(); next.push(n); if(next.length>2) next.shift();
       const trial=info.slots.map((x,i)=>i===r?next:x);
       if(!legal(trial,four,false,info.maxSit)){ dis=true;
