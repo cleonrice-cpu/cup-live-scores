@@ -839,7 +839,7 @@ function mvpByLine(){ const all=mvp(), out=[[],[],[]];
   all.forEach(function(x){ const w=WHERE[x.n]; if(w) out[w.li].push(x); }); return out; }
 function mvpRankInLine(n){ const w=WHERE[n]; if(!w) return -1; return mvpByLine()[w.li].findIndex(x=>x.n===n); }
 /* cup-times: approximate round clock for the player page */
-const RT=["9:40","10:15","10:50","11:25","12:00","12:35","13:10","13:45","14:20","15:00"];
+const RT=["10:10","10:45","11:20","11:55","12:30","13:05","13:40","14:15","14:50","15:30"];
 const LUNCH_AFTER=4; /* lunch note sits after round 5 (index 4) */
 const ALL=[], WHERE={};
 LN.forEach((tm,ti)=>tm.forEach((ln,li)=>ln.forEach(n=>{ ALL.push(n); WHERE[n]={ti:ti,li:li}; })));
