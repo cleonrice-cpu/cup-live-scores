@@ -1287,7 +1287,7 @@ function resPanel(){
       '</div><div class="meNp">'+(up&&!up.named ? 'Captain '+esc(T[ti].cap)+' names the pairs one round ahead.' : 'Check back after the next line-ups go in.')+'</div></div>';
   }
   const LUNCH_ROW='<div class="meR lunch"><span class="meRn">&#127869;</span><span class="meRt"><b>Lunch 12:00&ndash;14:00</b> &middot; rolling &middot; eat in the rounds you sit</span><span class="meRs"></span></div>';
-  let list='<div class="meNote">30-min rounds on the clock &middot; at time, the leader wins</div>';
+  let list='<div class="meNote">Times are a guide (~30 min a round) &middot; no match is cut short</div>';
   rows.forEach(function(x){
     if(x.unknown){ list+='<div class="meR dim"><span class="meRn">F<small class="meTm">~'+RT[9]+'</small></span><span class="meRt">Finals &middot; seeds not set yet</span></div>'; return; }
     const lab=x.r===FINALS?"F":(x.r+1);
