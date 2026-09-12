@@ -1353,7 +1353,7 @@ document.addEventListener("click", function(e){
       arr.push(n); if(arr.length>2) arr.shift();
       {                                              // re-check before committing
         const m=match(r,(c-1)/3|0), ti=m[side], l=(c-1)%3, info=lineInfo(ti,l);
-        if(info.fiveOK){
+        if(!FREE_PICK && info.fiveOK){
           const trial=info.slots.map((x,i)=>i===r?arr:x);
           if(!legal(trial,LN[ti][l],false,info.maxSit)) return;
           if(state.pr && info.pairOK && !legal(trial,LN[ti][l],true,info.maxSit)) return;
