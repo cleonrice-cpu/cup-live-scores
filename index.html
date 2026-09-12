@@ -652,6 +652,15 @@ body.phone #findBtn{display:none}
   body.phone .nx .nxh{font-size:calc(var(--k)*1.1)}
 }
 </style>
+<style id="cup-times">
+.meRn{display:flex;flex-direction:column;line-height:1}
+.meTm{font-family:var(--body);font-weight:600;font-size:9px;letter-spacing:.02em;color:var(--dim);margin-top:2px;white-space:nowrap}
+.meR{grid-template-columns:2.9em 1fr auto}
+.meR.lunch{color:var(--ink);background:color-mix(in srgb,var(--yellow) 12%,transparent);border-radius:8px;padding:7px 8px;margin:4px 0}
+.meR.lunch .meRn{font-size:1.1em;align-items:center}
+html.light .meR.lunch{background:color-mix(in srgb,var(--yellow) 22%,transparent)}
+.meNote{font-size:var(--l-micro);color:var(--dim);padding:6px 0 2px;letter-spacing:.02em}
+</style>
 </head>
 <body>
 
@@ -829,6 +838,9 @@ function mvp(){
 function mvpByLine(){ const all=mvp(), out=[[],[],[]];
   all.forEach(function(x){ const w=WHERE[x.n]; if(w) out[w.li].push(x); }); return out; }
 function mvpRankInLine(n){ const w=WHERE[n]; if(!w) return -1; return mvpByLine()[w.li].findIndex(x=>x.n===n); }
+/* cup-times: approximate round clock for the player page */
+const RT=["9:40","10:15","10:50","11:25","12:00","12:35","13:10","13:45","14:20","15:00"];
+const LUNCH_AFTER=4; /* lunch note sits after round 5 (index 4) */
 const ALL=[], WHERE={};
 LN.forEach((tm,ti)=>tm.forEach((ln,li)=>ln.forEach(n=>{ ALL.push(n); WHERE[n]={ti:ti,li:li}; })));
 ALL.sort();
@@ -1161,7 +1173,7 @@ function railTV(){
        '<span class="nm">'+esc(sn(x.n))+'<small>'+esc(T[x.ti].short)+'</small></span><span class="g n">'+x.gf+'</span></div>'; });
     h+='</div></div>'; });
   h+='</div><div class="tvprize">$250 Uber Eats or DoorDash gift card to the top games-won player in each line</div>';
-  h+='</div></div><div class="tvc tvq"><img alt="QR code for the live scores" src="data:image/png;base64,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">'+
+  h+='</div></div><div class="tvc tvq"><img alt="QR code for the live scores" src="data:image/png;base64,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">'+
      '<div><b>Follow on your phone</b>scan for live scores &amp; your next court</div></div>';
   $("rail").innerHTML=h; $("rtitle").textContent=""; $("rnote").textContent="";
 }
@@ -1264,16 +1276,19 @@ function resPanel(){
       (up ? (up.named ? 'Sitting out '+(up.r===FINALS?"the finals":"round "+(up.r+1)) : 'Round '+(up.r+1)+' line-up tbc') : 'No more rounds')+
       '</div><div class="meNp">'+(up&&!up.named ? 'Captain '+esc(T[ti].cap)+' names the pairs one round ahead.' : 'Check back after the next line-ups go in.')+'</div></div>';
   }
-  let list='';
+  const LUNCH_ROW='<div class="meR lunch"><span class="meRn">&#127869;</span><span class="meRt"><b>Lunch 12:00&ndash;14:00</b> &middot; rolling &middot; eat in the rounds you sit</span><span class="meRs"></span></div>';
+  let list='<div class="meNote">Times are approximate &middot; a round starts when all six courts are done</div>';
   rows.forEach(function(x){
-    if(x.unknown){ list+='<div class="meR dim"><span class="meRn">F</span><span class="meRt">Finals &middot; seeds not set yet</span></div>'; return; }
+    if(x.unknown){ list+='<div class="meR dim"><span class="meRn">F<small class="meTm">~'+RT[9]+'</small></span><span class="meRt">Finals &middot; seeds not set yet</span></div>'; return; }
     const lab=x.r===FINALS?"F":(x.r+1);
-    if(!x.on){ list+='<div class="meR dim"><span class="meRn">'+lab+'</span><span class="meRt">'+(x.named?'sat out':'line-up tbc')+'</span><span class="meRs"></span></div>'; return; }
+    const tm='<small class="meTm">~'+RT[x.r]+'</small>';
+    if(!x.on){ list+='<div class="meR dim"><span class="meRn">'+lab+tm+'</span><span class="meRt">'+(x.named?'sat out':'line-up tbc')+'</span><span class="meRs"></span></div>'; if(x.r===LUNCH_AFTER) list+=LUNCH_ROW; return; }
     const res = x.F ? (x.my>x.their?'W':x.my<x.their?'L':'D') : (x.played?'live':'next');
-    list+='<div class="meR '+(x.F?'fin '+res.toLowerCase():'')+'"><span class="meRn">'+lab+'</span>'+
+    list+='<div class="meR '+(x.F?'fin '+res.toLowerCase():'')+'"><span class="meRn">'+lab+tm+'</span>'+
       '<span class="meRt"><b>Court '+cn(x.c)+'</b> &middot; with '+(x.partner?nm(x.partner):'&mdash;')+' <span class="meRv">v</span> '+
       (x.opps.length?x.opps.map(nm).join(" &amp; "):esc(T[x.opp].short))+'</span>'+
       '<span class="meRs n">'+(x.played?x.my+'&ndash;'+x.their:'')+' <em>'+res+'</em></span></div>';
+    if(x.r===LUNCH_AFTER) list+=LUNCH_ROW;
   });
   const out='<div class="meH" style="--c:'+col+'"><span class="meSq">'+esc(T[ti].name)+' &middot; Line '+(w.li+1)+'</span>'+
     '<span class="meNm">'+esc(me)+'</span></div>'+
@@ -1344,6 +1359,11 @@ $("meIn").addEventListener("input", function(){
   $("mhits").innerHTML = q ? ALL.filter(n=>n.toLowerCase().indexOf(q)>=0).slice(0,6)
     .map(n=>'<button data-p="'+esc(n)+'">'+esc(n)+'</button>').join("") : "";
 });
+if(/\byou\b/i.test(location.hash)){ setTimeout(function(){
+  if(me) return; /* already picked a name on this phone: nothing to do */
+  if(document.body.classList.contains("phone")){ const i=$("meIn"); if(i){ i.scrollIntoView({block:"start"}); i.focus(); } }
+  else { const b=$("findBtn"); if(b) b.click(); }
+}, 900); }
 document.addEventListener("click", function(e){
   if(e.target && e.target.id==="meClr"){ me=null; try{localStorage.removeItem("cupMe");}catch(x){} $("meIn").value=""; $("mhits").innerHTML=""; resPanel(); $("meIn").focus(); }
 });
