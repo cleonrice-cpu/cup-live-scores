@@ -661,6 +661,13 @@ body.phone #findBtn{display:none}
 html.light .meR.lunch{background:color-mix(in srgb,var(--yellow) 22%,transparent)}
 .meNote{font-size:var(--l-micro);color:var(--dim);padding:6px 0 2px;letter-spacing:.02em}
 </style>
+<style id="cup-avatar">
+.meH{display:flex;align-items:center;gap:12px}
+.meAv{flex:none;width:calc(var(--k)*3.6);height:calc(var(--k)*3.6);border-radius:50%;object-fit:cover;background:var(--tint);border:2px solid var(--c);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 25%,transparent)}
+.meAv.ini{display:flex;align-items:center;justify-content:center;font-family:var(--dsp);font-weight:700;font-size:calc(var(--k)*1.3);letter-spacing:.02em}
+.meHt{min-width:0}
+body.phone .meAv{width:56px;height:56px} body.phone .meAv.ini{font-size:20px}
+</style>
 </head>
 <body>
 
@@ -1252,6 +1259,9 @@ function meRounds(n){
   }
   return out;
 }
+/* cup-avatar */
+function mePhoto(n){ try{ for(const k of DECK_KEYS){ const d=deckState[k]; if(d&&d.photos&&d.photos[n]) return d.photos[n]; } }catch(e){} return null; }
+function meInitials(n){ return String(n).split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0].toUpperCase()).join(""); }
 function resPanel(){
   const box=$("res"), mbox=$("mres");
   if(!me){ box.innerHTML=""; if(mbox) mbox.innerHTML='<p class="rnote">Type your name above to see your courts, results and MVP place.</p>'; const mp=$("mep"); if(mp) mp.classList.remove("set"); return; }
@@ -1290,8 +1300,11 @@ function resPanel(){
       '<span class="meRs n">'+(x.played?x.my+'&ndash;'+x.their:'')+' <em>'+res+'</em></span></div>';
     if(x.r===LUNCH_AFTER) list+=LUNCH_ROW;
   });
-  const out='<div class="meH" style="--c:'+col+'"><span class="meSq">'+esc(T[ti].name)+' &middot; Line '+(w.li+1)+'</span>'+
-    '<span class="meNm">'+esc(me)+'</span></div>'+
+  const ph=mePhoto(me);
+  const out='<div class="meH" style="--c:'+col+'">'+
+    (ph ? '<img class="meAv" alt="" src="'+ph+'">' : '<span class="meAv ini" style="background:'+T[ti].c+';color:'+(T[ti].fg||"#0d0e12")+'">'+esc(meInitials(me))+'</span>')+
+    '<span class="meHt"><span class="meSq">'+esc(T[ti].name)+' &middot; Line '+(w.li+1)+'</span>'+
+    '<span class="meNm">'+esc(me)+'</span></span></div>'+
     '<div class="meS"><div><b class="n">'+mine.gf+'</b><small>games won</small></div>'+
     '<div><b class="n">'+won+'&ndash;'+lost+'</b><small>courts W&ndash;L</small></div>'+
     '<div><b class="n">'+(mi>=0?'#'+(mi+1):'&mdash;')+'</b><small>MVP &middot; line '+(w.li+1)+'</small></div>'+
@@ -1540,8 +1553,9 @@ function applyRows(rows){
   let got=false;
   DECK_KEYS.forEach(function(k){ const r=rows["deck_"+k]; if(r&&r.doc&&typeof r.doc==="object"){
     deckState[k]={photos:r.doc.photos||{}, facts:r.doc.facts||{}}; got=true; } });
-  if(got && !decksLoaded){ decksLoaded=true; if(typeof decksReady==="function") decksReady(); }
+  if(got && !decksLoaded){ decksLoaded=true; if(typeof decksReady==="function") decksReady(); if(me && typeof resPanel==="function") resPanel(); }
   else if(got && typeof decksChanged==="function") decksChanged();
+  if(got && me && typeof resPanel==="function") resPanel();
 }
 let inPull=false;
 async function pull(){
