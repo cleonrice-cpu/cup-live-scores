@@ -846,7 +846,7 @@ function mvpByLine(){ const all=mvp(), out=[[],[],[]];
   all.forEach(function(x){ const w=WHERE[x.n]; if(w) out[w.li].push(x); }); return out; }
 function mvpRankInLine(n){ const w=WHERE[n]; if(!w) return -1; return mvpByLine()[w.li].findIndex(x=>x.n===n); }
 /* cup-times: approximate round clock for the player page */
-const RT=["10:10","10:45","11:20","11:55","12:30","13:05","13:40","14:15","14:50","15:30"];
+const RT=["10:10","10:40","11:10","11:40","12:10","12:40","13:10","13:40","14:10","14:40"];
 const LUNCH_AFTER=4; /* lunch note sits after round 5 (index 4) */
 const ALL=[], WHERE={};
 LN.forEach((tm,ti)=>tm.forEach((ln,li)=>ln.forEach(n=>{ ALL.push(n); WHERE[n]={ti:ti,li:li}; })));
@@ -1287,7 +1287,7 @@ function resPanel(){
       '</div><div class="meNp">'+(up&&!up.named ? 'Captain '+esc(T[ti].cap)+' names the pairs one round ahead.' : 'Check back after the next line-ups go in.')+'</div></div>';
   }
   const LUNCH_ROW='<div class="meR lunch"><span class="meRn">&#127869;</span><span class="meRt"><b>Lunch 12:00&ndash;14:00</b> &middot; rolling &middot; eat in the rounds you sit</span><span class="meRs"></span></div>';
-  let list='<div class="meNote">Times are approximate &middot; a round starts when all six courts are done</div>';
+  let list='<div class="meNote">30-min rounds on the clock &middot; at time, the leader wins</div>';
   rows.forEach(function(x){
     if(x.unknown){ list+='<div class="meR dim"><span class="meRn">F<small class="meTm">~'+RT[9]+'</small></span><span class="meRt">Finals &middot; seeds not set yet</span></div>'; return; }
     const lab=x.r===FINALS?"F":(x.r+1);
