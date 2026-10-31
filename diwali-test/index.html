@@ -39,9 +39,14 @@ h3{font:800 19px/1.1 var(--disp);margin:0 0 6px}
 .btn{border:0;border-radius:999px;padding:10px 18px;min-height:44px;font-weight:700;cursor:pointer;background:var(--mari);color:#1B1200}
 .btn.alt{background:transparent;border:1px solid var(--rule);color:var(--ink)}
 .btn[disabled]{opacity:.4;cursor:not-allowed}
+.btn.alt[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .sw{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:-1px;margin-right:6px;flex:none}
 .pill{display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:2px 9px}
-.pill.now{background:var(--ok);color:#06210F} .pill.wait{background:var(--sunk);color:var(--mari)} .pill.done{background:var(--sunk);color:var(--muted)} .pill.later{background:var(--sunk);color:var(--muted)}
+.pill.now{background:var(--ok);color:#06210F} .pill.wait{background:var(--sunk);color:var(--mari)} .pill.done{background:var(--sunk);color:var(--muted)} .pill.later{background:var(--sunk);color:var(--muted)} .pill.sent{background:var(--sunk);color:var(--ok)}
+.lnk{background:none;border:0;padding:4px 0;min-height:32px;color:var(--muted);text-decoration:underline;cursor:pointer;font-size:14px}
+.btn.sm{min-height:34px;padding:4px 12px;font-size:14px}
+.champ{border-left:6px solid var(--mari);margin-top:12px;font:800 22px/1.2 var(--disp)}
+.champ b{color:var(--mari)}
 .empty{padding:40px 16px;text-align:center;color:var(--muted)}
 .empty b{display:block;color:var(--ink);font:800 26px/1.1 var(--disp);margin-bottom:8px}
 
@@ -104,8 +109,19 @@ body.tv{overflow:hidden;height:100vh}
 .ctl-courts{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
 .cc{background:var(--surface);border-radius:12px;padding:14px;border-top:5px solid var(--rule)}
 .cc.now{border-top-color:var(--ok)} .cc.wait{border-top-color:var(--mari)}
-.cc .row{display:flex;align-items:center;gap:8px;margin:8px 0}
-.cc .row .side{flex:1}
+.cc .row{display:flex;align-items:center;gap:8px;margin:6px 0;flex-wrap:wrap}
+.cc .row .side{flex:1 1 140px}
+.wrap.ctl{max-width:1400px}
+.wrap.ctl h1{font-size:30px;margin:8px 0 0}
+@media (min-width:1000px){.ctl-courts.six{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.cc .pick button{width:36px;height:36px;font-size:17px}
+.tc{border:1px solid var(--rule);border-radius:10px;padding:6px 10px;margin:6px 0 8px}
+.tch{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ok)}
+.tci{padding:4px 0}.tci+.tci{border-top:1px solid var(--rule)}
+.cur{font-weight:700;margin-top:4px}
+.ccf{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:4px}
+#editor{max-width:660px}
+.cirow{display:flex;gap:6px;margin-top:4px}.cirow [data-ci]{flex:1}
 .pick{display:flex;gap:4px;flex-wrap:wrap}
 .pick button{width:40px;height:40px;border-radius:8px;border:1px solid var(--rule);background:var(--sunk);font:800 18px var(--disp);cursor:pointer}
 .pick button[aria-pressed=true]{background:var(--mari);color:#1B1200;border-color:var(--mari)}
@@ -133,6 +149,8 @@ input.pin{min-height:48px;border:1px solid var(--rule);border-radius:10px;backgr
 .poster .rule{font-size:13px;color:#444;margin-top:12px}
 .poster.squad table{font-size:13px} .poster.squad td,.poster.squad th{padding:4px 6px} .poster.squad h3{margin:8px 0 2px!important}
 .doorqr{text-align:center}
+.sheetqr{float:right;display:flex;align-items:center;gap:10px;max-width:250px;font:700 14px/1.25 var(--text);color:#111}
+.sheetqr svg{width:1in;height:1in;flex:none}
 .doorqr svg{width:420px;max-width:80%;height:auto}
 @media print{
   @page{size:letter portrait;margin:12mm}
@@ -160,23 +178,28 @@ const HDR = { apikey: SB_KEY, Authorization: "Bearer " + SB_KEY };
 /* One source, two builds: the live board (dw_*) and a rehearsal copy (dwt_*) with its own data, PIN and phone storage. */
 const TEST = "test" === "test", P = TEST ? "dwt" : "dw";
 const BASE = location.origin + location.pathname;
-const LS = { pin: P + ".pin", me: P + ".me", queue: P + ".queue", ci: P + ".checkin", ciPending: P + ".checkinPending", cache: P + ".cache" };
+const LS = { pin: P + ".pin", pinok: P + ".pinok", me: P + ".me", queue: P + ".queue", ci: P + ".checkin", ciPending: P + ".checkinPending", cache: P + ".cache" };
 const $ = (s, el) => (el || document).querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} };
 
 /* ---------- state ---------- */
-let SETUP = null, SCORES = { s: {}, at: {}, fin: {} }, CHECKINS = {}, REPORTS = {}, online = true, lastSeen = 0;
-let editId = null, lastSig = "", deferred = false, repPick = {}, repMsg = {};
+let SETUP = null, SCORES = { s: {}, at: {}, fin: {} }, CHECKINS = {}, RESERVES = {}, REPORTS = {}, online = true, lastSeen = 0, pulled = false;
+let editId = null, lastSig = "", deferred = false, repPick = {}, repMsg = {}, qVal = "", handOpen = {}, ffOpen = null, ciMissing = null, pickAt = {};
 /* Last good copy of everything, so a reload with no signal still shows squads, scores and check-ins. */
-(function loadCache(){ const c = lsGet(LS.cache, null); if (c) { SETUP = c.setup || null; SCORES = Object.assign({ s:{}, at:{}, fin:{} }, c.scores || {}); CHECKINS = c.checkins || {}; REPORTS = c.reports || {}; mergeQueue(); } })();
-function saveCache(){ lsSet(LS.cache, { setup: SETUP, scores: SCORES, checkins: CHECKINS, reports: REPORTS, savedAt: Date.now() }); }
+(function loadCache(){ const c = lsGet(LS.cache, null); if (c) { SETUP = c.setup || null; SCORES = Object.assign({ s:{}, at:{}, fin:{} }, c.scores || {}); CHECKINS = c.checkins || {}; RESERVES = c.reserves || {}; REPORTS = c.reports || {}; mergeQueue(); } })();
+function saveCache(){ lsSet(LS.cache, { setup: SETUP, scores: SCORES, checkins: CHECKINS, reserves: RESERVES, reports: REPORTS, savedAt: Date.now() }); }
 const ord = (n) => n + (["th","st","nd","rd"][((n % 100) - 20) % 10] || ["th","st","nd","rd"][n % 100] || "th");
 let view = "home", meName = lsGet(LS.me, null), ctlTab = "courts", pickState = {};
 
 /* ---------- model ---------- */
 const RR = 9, FINAL = 9;
+/* A phone report moves the queue on (the next pair can start), but only a confirmed score counts for standings, MVP and finals. */
+const reported = (id) => !!(REPORTS[id] && (REPORTS[id].h || REPORTS[id].a));
+const played = (id) => !!SCORES.s[id] || reported(id);
+const skipped = () => !!(SCORES.fin && SCORES.fin[0] && SCORES.fin[0].skip);
+const present = (n) => !!(CHECKINS[n] || RESERVES[n]);
 function buildMatches(){
   if (!SETUP) return [];
   const M = [], C = SETUP.courts || { A:[6,4,2], B:[5,3,1] };
@@ -184,6 +207,7 @@ function buildMatches(){
     const [h, a] = SETUP.rounds[r][t];
     for (let l = 0; l < 3; l++) M.push({ id:`${r}|${t}|${l}`, r, t, l, court:C[t ? "B" : "A"][l], h, a, hp:SETUP.pairs[r][h][l], ap:SETUP.pairs[r][a][l] });
   }
+  if (skipped()) return M;
   const rrDone = M.every((m) => SCORES.s[m.id]);
   const st = standings(M);
   for (let t = 0; t < 2; t++) for (let l = 0; l < 3; l++) {
@@ -211,17 +235,18 @@ function standings(M){
 function statusAll(M){
   const byCourt = {}; M.forEach((m) => (byCourt[m.court] = byCourt[m.court] || []).push(m));
   Object.values(byCourt).forEach((q) => q.sort((a, b) => a.r - b.r));
-  const unscoredBefore = (name, r) => M.find((x) => x.r < r && !SCORES.s[x.id] && x.hp && x.ap && (x.hp.includes(name) || x.ap.includes(name)));
+  const unscoredBefore = (name, r) => M.find((x) => x.r < r && !played(x.id) && x.hp && x.ap && (x.hp.includes(name) || x.ap.includes(name)));
   const st = {};
   Object.values(byCourt).forEach((q) => {
     let up = false;
     q.forEach((m, i) => {
-      if (SCORES.s[m.id]) { st[m.id] = { k:"done" }; return; }
+      if (played(m.id)) { st[m.id] = { k: SCORES.s[m.id] ? "done" : "sent" }; return; }
       if (up) { st[m.id] = { k:"later", pos: i }; return; }
       up = true;
-      if (m.final && !m.ready) { st[m.id] = { k:"wait", why:"Starts when round 9 is finished on every court" }; return; }
+      if (m.final && !m.ready) { const miss = M.filter((x) => !x.final && !SCORES.s[x.id]).sort((a, b) => a.r - b.r || a.court - b.court);
+        st[m.id] = { k:"wait", why:`Finals start when every round-robin score is in. Still missing: ${miss.slice(0, 3).map((x) => `court ${x.court}, round ${x.r + 1}`).join("; ")}${miss.length > 3 ? ` and ${miss.length - 3} more` : ""}` }; return; }
       const players = [].concat(m.hp || [], m.ap || []);
-      for (const p of players) { const b = unscoredBefore(p, m.r); if (b) { st[m.id] = { k:"wait", why:`Waiting for ${p}, whose earlier match on court ${b.court} isn't in yet`, on:b }; return; } }
+      for (const p of players) { const b = unscoredBefore(p, m.r); if (b) { st[m.id] = { k:"wait", why:`Waiting for ${p}, still playing on court ${b.court}`, on:b }; return; } }
       st[m.id] = { k:"now" };
     });
   });
@@ -229,10 +254,21 @@ function statusAll(M){
 }
 /* A final tie: total games across its three courts; level totals are settled by the golden-point decider winner (fin[t].w). */
 function finalResult(M, t){
-  const ms = M.filter((m) => m.final && m.t === t); if (ms.some((m) => !SCORES.s[m.id]) || ms[0].h == null) return null;
+  const ms = M.filter((m) => m.final && m.t === t); if (!ms.length || ms.some((m) => !SCORES.s[m.id]) || ms[0].h == null) return null;
   const gh = ms.reduce((a, m) => a + SCORES.s[m.id][0], 0), ga = ms.reduce((a, m) => a + SCORES.s[m.id][1], 0);
   const w = gh > ga ? ms[0].h : ga > gh ? ms[0].a : (SCORES.fin[t] && SCORES.fin[t].w != null ? SCORES.fin[t].w : null);
   return { h: ms[0].h, a: ms[0].a, gh, ga, w, level: gh === ga };
+}
+/* Champions and third place: from the finals, or from round-robin standings if the finals were skipped. */
+function podium(M){
+  if (skipped()) { const S = standings(M); return { w: S[0].s, third: S[2].s, skip: true }; }
+  const F0 = finalResult(M, 0), F1 = finalResult(M, 1);
+  return F0 && F0.w != null ? { w: F0.w, third: F1 && F1.w != null ? F1.w : null } : null;
+}
+function placing(M, s){
+  if (skipped()) return standings(M).findIndex((x) => x.s === s) + 1;
+  for (const t of [0, 1]) { const F = finalResult(M, t); if (F && F.w != null && (F.h === s || F.a === s)) return t * 2 + (F.w === s ? 1 : 2); }
+  return null;
 }
 function playerStats(M){
   const P = {};
@@ -244,23 +280,27 @@ function playerStats(M){
 function lineOf(name){ for (let s = 0; s < 4; s++) for (let l = 0; l < 3; l++) if (SETUP.lines[s][l].includes(name)) return { s, l }; return null; }
 function mvp(M){
   const P = playerStats(M), out = [[],[],[]];
-  Object.entries(P).forEach(([n, x]) => { const w = lineOf(n); if (w) out[w.l].push(Object.assign({ n }, x)); });
+  Object.entries(P).forEach(([n, x]) => { const w = lineOf(n); if (w && !RESERVES[n]) out[w.l].push(Object.assign({ n }, x)); });
   out.forEach((L) => L.sort((a, b) => (b.gw - a.gw) || (b.cw - a.cw) || ((b.gw - b.gl) - (a.gw - a.gl))));
   return out;
 }
 const T = (s) => SETUP.teams[s];
+const nick = (s) => T(s).name.split(" ").pop();   // "Deconstructed Samosas" -> "Samosas", for tight scorer lines
 const sideHTML = (s, pair, cls) => s == null ? `<div class="side ${cls || ""}"><span class="nm muted">${cls === "f" ? "" : "To be decided"}</span></div>` :
-  `<div class="side"><span class="sw" style="background:${esc(T(s).color)}"></span><div><div class="sq">${esc(T(s).short)}</div><div class="nm">${esc(pair ? pair.join(" & ") : "")}</div></div></div>`;
+  `<div class="side"><span class="sw" style="background:${esc(T(s).color)}"></span><div><div class="sq">${esc(T(s).name)}</div><div class="nm">${esc(pair ? pair.join(" & ") : "")}</div></div></div>`;
 
 /* ---------- data ---------- */
 async function pull(){
   try {
-    const r = await fetch(SB_URL + `/rest/v1/cup_state?select=key,doc,updated_at&key=in.(${P}_setup,${P}_scores,${P}_checkins,${P}_reports)`, { headers: HDR, cache: "no-store" });
+    // A venue wifi with no internet can hang a request for minutes; give up after 8 s so the page can say there's no signal.
+    const ac = new AbortController(), to = setTimeout(() => ac.abort(), 8000);
+    const r = await fetch(SB_URL + `/rest/v1/cup_state?select=key,doc,updated_at&key=in.(${P}_setup,${P}_scores,${P}_checkins,${P}_reports)`, { headers: HDR, cache: "no-store", signal: ac.signal }).finally(() => clearTimeout(to));
     if (!r.ok) throw new Error(r.status);
     const rows = await r.json(); online = true; lastSeen = Date.now();
-    rows.forEach((row) => { if (row.key === P + "_setup") SETUP = row.doc; if (row.key === P + "_scores") mergeRemote(row.doc); if (row.key === P + "_checkins") CHECKINS = (row.doc && row.doc.in) || {}; if (row.key === P + "_reports") REPORTS = (row.doc && row.doc.r) || {}; });
+    rows.forEach((row) => { if (row.key === P + "_setup") SETUP = row.doc; if (row.key === P + "_scores") mergeRemote(row.doc); if (row.key === P + "_checkins") { CHECKINS = (row.doc && row.doc.in) || {}; RESERVES = (row.doc && row.doc.res) || {}; } if (row.key === P + "_reports") REPORTS = (row.doc && row.doc.r) || {}; });
     saveCache();
   } catch(e){ online = false; }
+  pulled = true;
   await flush(); await flushCheckin(); renderIfChanged();
 }
 /* ---------- check-in ---------- */
@@ -323,11 +363,12 @@ function setScore(id, v){
   if (m && m.final && v && !(SCORES.fin[m.t] && SCORES.fin[m.t].h != null)) { const lock = { h: m.h, a: m.a }; q["fin|" + m.t] = { v: lock, at }; SCORES.fin[m.t] = Object.assign({}, SCORES.fin[m.t] || {}, lock); }
   lsSet(LS.queue, q);
   if (v) SCORES.s[id] = v; else delete SCORES.s[id]; SCORES.at[id] = at;
-  saveCache(); render(); flush().then(render);
+  saveCache(); render(); flush().then(renderIfChanged);
 }
-function setDecider(t, w){
-  const q = lsGet(LS.queue, {}); const at = Date.now(); q["fin|" + t] = { v: { w }, at }; lsSet(LS.queue, q);
-  SCORES.fin[t] = Object.assign({}, SCORES.fin[t] || {}, { w }); saveCache(); render(); flush().then(render);
+/* Final-level flags (decider winner, skip) go up as "fin|t"; the server merges them into fin[t]. */
+function setFin(t, v){
+  const q = lsGet(LS.queue, {}), k = "fin|" + t; q[k] = { v: Object.assign({}, q[k] && q[k].v, v), at: Date.now() }; lsSet(LS.queue, q);
+  SCORES.fin[t] = Object.assign({}, SCORES.fin[t] || {}, v); saveCache(); render(); flush().then(renderIfChanged);
 }
 
 /* ---------- router ---------- */
@@ -346,15 +387,31 @@ function syncHTML(){
   const t = !online ? "Offline, scores are kept on this device and send when the signal is back" : pending ? `Sending ${pending} score${pending > 1 ? "s" : ""}…` : "Live";
   return `<span class="sync ${cls}"><i></i>${t}</span>`;
 }
-function noSetup(){ return `<div class="empty"><b>Squads aren't loaded yet</b>The scoring laptop loads them from the Diwali Cup Kit before the day.</div>`; }
+function noSetup(){
+  if (!pulled) return `<div class="empty"><b>Loading…</b></div>`;
+  if (!online) return `<div class="empty"><b>No signal yet</b>Move closer to the door or join the club wifi, then this page loads by itself.${view === "you" ? " Or check in at the score table." : ""}</div>`;
+  return `<div class="empty"><b>Squads aren't loaded yet</b>The scoring laptop loads them from the Diwali Cup Kit before the day.</div>`; }
 
 /* ---------- views ---------- */
-function sig(){ return JSON.stringify([SETUP && SETUP.event, SETUP && JSON.stringify(SETUP).length, SCORES, CHECKINS, REPORTS, online, Object.keys(lsGet(LS.queue, {})).length, eventDay()]); }
+function sig(){ return JSON.stringify([SETUP && SETUP.event, SETUP && JSON.stringify(SETUP).length, SCORES, CHECKINS, RESERVES, REPORTS, online, pulled, Object.keys(lsGet(LS.queue, {})).length, eventDay()]); }
 function typing(){ const a = document.activeElement; return a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA"); }
-function renderIfChanged(){ const g = sig(); if (g === lastSig) return; if (typing()) { deferred = true; return; } render(); }
-document.addEventListener("focusout", () => setTimeout(() => { if (deferred && !typing()) { deferred = false; render(); } }, 50));
+/* Hold background refreshes while someone is mid-action: typing, a two-tap button armed, or a half-picked score
+   (a pick goes stale after 30 s so an abandoned pad can't freeze the screen). The next 5-second pull renders. */
+function holdRender(){
+  if (typing() || document.querySelector("[data-armed]") || ($("#clearTxt") && $("#clearTxt").value)) return true;
+  return Object.keys(pickState).some((id) => Date.now() - (pickAt[id] || 0) < 30000 && document.querySelector(`[data-m="${CSS.escape(id)}"]`));
+}
+function renderIfChanged(){ const g = sig(); if (g === lastSig) return; if (holdRender()) { deferred = true; return; } deferred = false; render(); }
+document.addEventListener("focusout", () => setTimeout(() => { if (deferred) renderIfChanged(); }, 50));
+/* Two-tap buttons: the first tap arms and relabels; returns true on the second tap. Disarms itself after 5 s. */
+function arm(b, label){
+  if (b.dataset.armed) return true;
+  b.dataset.armed = "1"; const was = b.innerHTML; b.textContent = label;
+  setTimeout(() => { if (b.isConnected && b.dataset.armed) { delete b.dataset.armed; b.innerHTML = was; } if (deferred) renderIfChanged(); }, 5000);
+  return false;
+}
 function render(){
-  lastSig = sig();
+  lastSig = sig(); deferred = false;
   const app = $("#app");
   document.body.classList.toggle("is-test", TEST);
   if (view === "tv") return app.innerHTML = tvView();
@@ -379,24 +436,24 @@ function tvView(){
   if (!SETUP) return `<div class="tvw"><div class="tvhead"><div class="brand">${title()}</div>${syncHTML()}</div>${noSetup()}</div>`;
   const M = buildMatches(), { st, byCourt } = statusAll(M), S = standings(M), V = mvp(M);
   const done = M.filter((m) => SCORES.s[m.id]).length;
-  const roster = SETUP.lines.flat(2), here = roster.filter((n) => CHECKINS[n]).length;
+  const roster = SETUP.lines.flat(2), here = roster.filter(present).length;
   const order = [6,4,2,5,3,1].filter((c) => byCourt[c]);
   const courts = order.map((c) => {
-    const q = byCourt[c], cur = q.find((m) => !SCORES.s[m.id]), last = q.slice().reverse().find((m) => SCORES.s[m.id]);
+    const q = byCourt[c], cur = q.find((m) => !played(m.id)), last = q.slice().reverse().find((m) => SCORES.s[m.id]);
     const nxt = cur ? q[q.indexOf(cur) + 1] : null;
-    if (!cur) return `<div class="ct"><div class="ch"><span class="cn">Court ${c}</span><span class="cl">Line ${q[0].l + 1}</span></div><div class="st"><b>All matches played</b></div>${last ? `<div class="nx">Last: ${esc(T(last.h).short)} ${SCORES.s[last.id][0]}–${SCORES.s[last.id][1]} ${esc(T(last.a).short)}</div>` : ""}</div>`;
+    if (!cur) return `<div class="ct"><div class="ch"><span class="cn">Court ${c}</span><span class="cl">Line ${q[0].l + 1}</span></div><div class="st"><b>All matches played</b></div>${last ? `<div class="nx">Last: ${esc(T(last.h).name)} ${SCORES.s[last.id][0]}–${SCORES.s[last.id][1]} ${esc(T(last.a).name)}</div>` : ""}</div>`;
     const s = st[cur.id];
     return `<div class="ct ${s.k}"><div class="ch"><span class="cn">Court ${c}</span><span class="cl">${cur.final ? "Final, " + cur.label : "Round " + (cur.r + 1)} · Line ${cur.l + 1}</span></div>
       ${sideHTML(cur.h, cur.hp)}<div class="vs">v</div>${sideHTML(cur.a, cur.ap)}
       <div class="st">${s.k === "now" ? "<b>Up now</b>" : esc(s.why)}</div>
-      ${nxt ? `<div class="nx"><b style="color:var(--ink)">Next here</b> · ${nxt.final ? "final, " + nxt.label : "round " + (nxt.r + 1)}${nxt.hp ? `<br>${esc(T(nxt.h).short)} ${esc(nxt.hp.join(" & "))} v ${esc(T(nxt.a).short)} ${esc(nxt.ap.join(" & "))}` : ""}</div>` : ""}
-      ${last ? `<div class="nx">Last: ${esc(T(last.h).short)} ${SCORES.s[last.id][0]}–${SCORES.s[last.id][1]} ${esc(T(last.a).short)}</div>` : ""}</div>`;
+      ${nxt ? `<div class="nx"><b style="color:var(--ink)">Next here</b> · ${nxt.final ? "final, " + nxt.label : "round " + (nxt.r + 1)}${nxt.hp ? `<br>${esc(nxt.hp.join(" & "))} (${esc(T(nxt.h).name)}) v ${esc(nxt.ap.join(" & "))} (${esc(T(nxt.a).name)})` : ""}</div>` : ""}
+      ${last ? `<div class="nx">Last: ${esc(T(last.h).name)} ${SCORES.s[last.id][0]}–${SCORES.s[last.id][1]} ${esc(T(last.a).name)}</div>` : ""}</div>`;
   }).join("");
   const stand = `<table class="stand">${S.map((x, i) => `<tr><td>${i + 1}</td><td><span class="sw" style="background:${esc(T(x.s).color)}"></span>${esc(T(x.s).name)}</td><td class="r">${x.gw}</td><td class="r muted">${x.gw - x.gl >= 0 ? "+" : ""}${x.gw - x.gl}</td></tr>`).join("")}</table>`;
   const same = (a, b) => a && b && a.gw === b.gw && a.cw === b.cw && (a.gw - a.gl) === (b.gw - b.gl);
   const mv = V.map((L, l) => { const tied = L.filter((x) => same(x, L[0])); return `<div><span>Line ${l + 1}: ${L[0] ? esc(tied.map((x) => x.n).join(" and ")) + (tied.length > 1 ? ", tied" : "") : "—"}</span><span class="num">${L[0] ? L[0].gw : ""}</span></div>`; }).join("");
-  const F0 = finalResult(M, 0), F1 = finalResult(M, 1);
-  return `<div class="tvw"><div class="tvhead"><div class="brand">${title()}</div><div class="prog">${F0 && F0.w != null ? `Champions: <b>${esc(T(F0.w).name)}</b>${F1 && F1.w != null ? ` · Third: ${esc(T(F1.w).name)}` : ""}` : done === 0 && eventDay() ? `<b class="num">${here}</b> of ${roster.length} checked in` : `<b class="num">${done}</b> of ${M.length} matches played`}</div></div>
+  const pd = podium(M);
+  return `<div class="tvw"><div class="tvhead"><div class="brand">${title()}</div><div class="prog">${pd ? `Champions: <b>${esc(T(pd.w).name)}</b>${pd.third != null ? ` · Third: ${esc(T(pd.third).name)}` : ""}` : done === 0 && eventDay() ? `<b class="num">${here}</b> of ${roster.length} checked in` : `<b class="num">${done}</b> of ${M.length} matches played`}</div></div>
     <div class="tvmain"><div class="courts">${courts}</div>
     <div class="rail"><div class="card"><h2>Standings</h2>${stand}<div class="muted" style="font-size:clamp(10px,.8vw,15px);margin-top:.5vh">Total games won, then game difference</div></div>
     <div class="card mvp"><h2>MVP race</h2>${mv}</div>
@@ -411,11 +468,13 @@ const REP_ERR = { already_scored: "The score table already has this score.", not
 function reportHTML(m){
   const h = m.hp.includes(meName), side = h ? "h" : "a", mine = REPORTS[m.id] && REPORTS[m.id][side];
   const max = (SETUP.format && SETUP.format.gamesTo) || 6, p = repPick[m.id] || [null, null], msg = repMsg[m.id];
-  const opp = h ? m.ap : m.hp, partner = (h ? m.hp : m.ap).find((n) => n !== meName);
+  const opp = h ? m.ap : m.hp, partner = (h ? m.hp : m.ap).find((n) => n !== meName), other = REPORTS[m.id] && REPORTS[m.id][h ? "a" : "h"];
+  if (!mine && other && !p.edit) { const v = h ? other.v : [other.v[1], other.v[0]];
+    return `<div class="card rep" style="margin-top:12px"><h3>${esc(other.by)} sent ${v[0]}–${v[1]}, a ${v[0] > v[1] ? "win" : "loss"} for you</h3><p class="muted" style="margin:0 0 8px">${m.final ? "Final" : "Round " + (m.r + 1)} on court ${m.court}. The score table confirms it, then it goes on the board.</p><button class="btn alt" type="button" data-repedit="${m.id}" style="min-height:38px">Not right? Send yours</button></div>`; }
   if (mine && !p.edit) { const v = h ? mine.v : [mine.v[1], mine.v[0]];
-    return `<div class="card rep" style="margin-top:12px"><h3>Score sent: ${v[0]}–${v[1]} ${v[0] > v[1] ? "win" : "loss"}</h3><p class="muted" style="margin:0 0 8px">Waiting for the score table to confirm it. It goes on the board once they do.</p><button class="btn alt" type="button" data-repedit="${m.id}" style="min-height:38px">Change it</button></div>`; }
+    return `<div class="card rep" style="margin-top:12px"><h3>Score sent: ${v[0]}–${v[1]} ${v[0] > v[1] ? "win" : "loss"}</h3><p class="muted" style="margin:0 0 8px">${m.final ? "Final" : "Round " + (m.r + 1)} on court ${m.court}. The score table confirms it, then it goes on the board.</p><button class="btn alt" type="button" data-repedit="${m.id}" style="min-height:38px">Change it</button></div>`; }
   const btns = (k, label) => `<div class="muted" style="font-size:14px;margin-top:8px">${label}</div><div class="pick" role="group" aria-label="${esc(label)}">${Array.from({ length: max + 1 }, (_, v) => `<button type="button" data-rp="${m.id}" data-k="${k}" data-v="${v}" aria-pressed="${p[k] === v}">${v}</button>`).join("")}</div>`;
-  return `<div class="card rep" style="margin-top:12px"><h3>Finished? Report the score</h3>${btns(0, "Games for you & " + partner)}${btns(1, "Games for " + opp.join(" & "))}
+  return `<div class="card rep" style="margin-top:12px"><h3>${p.edit ? `Change your ${m.final ? "final" : "round " + (m.r + 1)} score` : "Finished? Report the score"}</h3>${btns(0, "Games for you & " + partner)}${btns(1, "Games for " + opp.join(" & "))}
     <div style="margin-top:10px"><button class="btn" type="button" data-repgo="${m.id}">Send ${p[0] != null && p[1] != null ? p[0] + "–" + p[1] : "score"}</button></div>
     <div class="msg ${msg && msg.err ? "err" : ""}" role="alert">${msg ? esc(msg.t) : "The score table confirms it before it goes on the board. A 5–5 tiebreak counts as 6–5."}</div></div>`;
 }
@@ -435,26 +494,31 @@ async function sendReport(id){
   }
   render();
 }
+/* Name search: case- and accent-insensitive, from the start of any word, ignoring the "…" on shortened names. */
+const fold = (x) => String(x).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+const nameMatch = (n, q) => { q = fold(q); return !q || (" " + fold(n)).includes(" " + q); };
 function youView(){
   if (!SETUP) return `<div class="wrap"><div class="bar"><a class="brand" href="#" style="color:inherit;text-decoration:none">${title()}</a>${syncHTML()}</div>${noSetup()}</div>`;
   const all = []; SETUP.lines.forEach((ls, s) => ls.forEach((q, l) => q.forEach((n) => all.push({ n, s, l }))));
   all.sort((a, b) => a.n.localeCompare(b.n));
-  const needCheckin = eventDay() && meName && !CHECKINS[meName];
+  const needCheckin = eventDay() && meName && !present(meName);
   if (!meName || !all.find((x) => x.n === meName) || needCheckin) {
     const day = eventDay();
     if (needCheckin) { const i = all.findIndex((x) => x.n === meName); if (i > 0) all.unshift(all.splice(i, 1)[0]); }
     return `<div class="wrap"><div class="bar"><a class="brand" href="#" style="color:inherit;text-decoration:none">${title()}</a>${syncHTML()}</div><h1>${day ? "Check in: tap your name" : "Find your name"}</h1>
       <p class="muted" style="margin:0 0 12px">${day ? "Tapping your name marks you here and opens your matches." : "Check-in opens on the morning of the Cup, when you scan the QR code at the door."}</p>
-      <input class="search" id="q" placeholder="Type your name" aria-label="Type your name" autocomplete="off">
-      <div class="names" id="names">${all.map((x) => `<button type="button" data-n="${esc(x.n)}"><span class="sw" style="background:${esc(T(x.s).color)}"></span><span>${esc(x.n)}<br><span class="muted" style="font-size:13px">${esc(T(x.s).name)}, Line ${x.l + 1}</span></span></button>`).join("")}</div></div>`;
+      <input class="search" id="q" value="${esc(qVal)}" placeholder="Type your name" aria-label="Type your name" autocomplete="off">
+      <div class="names" id="names">${all.map((x) => `<button type="button" data-n="${esc(x.n)}"><span class="sw" style="background:${esc(T(x.s).color)}"></span><span>${esc(x.n)}<br><span class="muted" style="font-size:13px">${esc(T(x.s).name)}, Line ${x.l + 1}</span></span></button>`).join("")}</div><p class="card" id="nomatch" hidden style="margin-top:12px">Not listed? Go to the score table.</p></div>`;
   }
   const M = buildMatches(), { st, byCourt } = statusAll(M), me = all.find((x) => x.n === meName), P = playerStats(M)[meName] || { gw:0, gl:0, m:0 };
   const mine = M.filter((m) => (m.hp && m.hp.includes(meName)) || (m.ap && m.ap.includes(meName)));
   // Before the standings set the finals, the final shows as a placeholder from the captain's pre-set pair.
   const myFinalPair = SETUP.pairs[FINAL][me.s][me.l];
-  const finalPending = myFinalPair.includes(meName) && !mine.some((m) => m.final);
-  const nextM = mine.find((m) => !SCORES.s[m.id]);
-  const pos = (m) => { const q = byCourt[m.court]; const cur = q.findIndex((x) => !SCORES.s[x.id]); const i = q.indexOf(m); return i - cur; };
+  const finalPending = !skipped() && myFinalPair.includes(meName) && !mine.some((m) => m.final);
+  const nextM = mine.find((m) => !played(m.id));
+  const pos = (m) => { const q = byCourt[m.court]; const cur = q.findIndex((x) => !played(x.id)); const i = q.indexOf(m); return i - cur; };
+  // Sent scores the table hasn't confirmed yet, so this player can check, change or dispute them.
+  const sent = mine.filter((m) => !SCORES.s[m.id] && reported(m.id)).map(reportHTML).join("");
   let nextHTML;
   if (nextM) {
     const s = st[nextM.id], ahead = pos(nextM);
@@ -470,76 +534,97 @@ function youView(){
   const list = mine.map((m) => { const sc = SCORES.s[m.id], s = st[m.id], h = m.hp.includes(meName);
     const partner = (h ? m.hp : m.ap).find((n) => n !== meName), opp = h ? m.ap : m.hp, os = h ? m.a : m.h;
     const score = sc ? (h ? sc : [sc[1], sc[0]]) : null;
-    return `<div class="m ${sc ? "me-done" : ""}"><div class="ctn">${m.court}<small>court</small></div><div class="who">${m.final ? "Final" : "Round " + (m.r + 1)} <span class="pill ${s.k}">${!sc && REPORTS[m.id] && REPORTS[m.id][h ? "h" : "a"] ? "Score sent" : s.k === "now" ? "Up now" : s.k === "wait" ? "Waiting" : s.k === "done" ? (score[0] > score[1] ? "Won" : "Lost") : "Later"}</span><br>with <b>${esc(partner)}</b> v ${esc(opp.join(" & "))} <span class="muted">(${esc(T(os).short)})</span></div><div class="sc num">${score ? score.join("–") : ""}</div></div>`; }).join("");
+    return `<div class="m ${sc ? "me-done" : ""}"><div class="ctn">${m.court}<small>court</small></div><div class="who">${m.final ? "Final" : "Round " + (m.r + 1)} <span class="pill ${s.k}">${!sc && reported(m.id) ? "Score sent" : s.k === "now" ? "Up now" : s.k === "wait" ? "Waiting" : s.k === "done" ? (score[0] > score[1] ? "Won" : "Lost") : "Later"}</span><br>with <b>${esc(partner)}</b> v ${esc(opp.join(" & "))} <span class="muted">(${esc(T(os).name)})</span></div><div class="sc num">${score ? score.join("–") : ""}</div></div>`; }).join("");
   const S = standings(M), rank = S.findIndex((x) => x.s === me.s) + 1, V = mvp(M)[me.l], vr = V.findIndex((x) => x.n === meName) + 1;
+  const pd = podium(M), pl = placing(M, me.s);
   return `<div class="wrap"><div class="bar"><a class="brand" href="#" style="color:inherit;text-decoration:none">${title()}</a>${syncHTML()}</div>
-    <h1>${esc(meName)}</h1><div class="muted"><span class="sw" style="background:${esc(T(me.s).color)}"></span>${esc(T(me.s).name)} · Line ${me.l + 1} · <button class="btn alt" type="button" id="notme" style="min-height:32px;padding:4px 12px">Not you?</button></div>
+    <h1>${esc(meName)}</h1><div class="muted"><span class="sw" style="background:${esc(T(me.s).color)}"></span>${esc(T(me.s).name)} · Line ${me.l + 1} of ${SETUP.lines[me.s].length} · <button class="btn alt" type="button" id="notme" style="min-height:32px;padding:4px 12px">Not you?</button></div>
     ${CHECKINS[meName] ? `<div style="margin-top:10px"><span class="pill now">${CHECKINS[meName] === "pending" ? "Checked in, sending when online" : (clock12(CHECKINS[meName]) ? "Checked in at " + clock12(CHECKINS[meName]) : "Checked in")}</span></div>` : ""}
-    <div class="grid2"><div>${nextHTML}<h2>Your matches</h2><div class="mlist">${list}${finalPending ? `<div class="m"><div class="ctn">–<small>court</small></div><div class="who">Final <span class="pill later">After round 9</span><br>with <b>${esc(myFinalPair.find((n) => n !== meName))}</b></div><div></div></div>` : ""}</div></div>
-    <div><div class="card" style="margin-top:12px"><h3>Your squad</h3><p style="margin:0">${Object.keys(SCORES.s).length ? `${esc(T(me.s).name)} is <b>${ord(rank)}</b> on games.` : "Standings start with the first result."}</p></div>
+    ${pd ? `<div class="card champ">Champions: <b>${esc(T(pd.w).name)}</b>${pd.third != null ? `<div class="muted" style="font:600 15px var(--text);margin-top:4px">Third place: ${esc(T(pd.third).name)}</div>` : ""}</div>` : ""}
+    <div class="grid2"><div>${sent}${nextHTML}<h2>Your matches</h2><div class="mlist">${list}${finalPending ? `<div class="m"><div class="ctn">–<small>court</small></div><div class="who">Final <span class="pill later">After round 9</span><br>with <b>${esc(myFinalPair.find((n) => n !== meName))}</b></div><div></div></div>` : ""}</div></div>
+    <div><div class="card" style="margin-top:12px"><h3>Your squad</h3><p style="margin:0">${pl ? `${esc(T(me.s).name)} finished <b>${ord(pl)}</b>.` : Object.keys(SCORES.s).length ? `${esc(T(me.s).name)} is <b>${ord(rank)}</b> on games.` : "Standings start with the first result."}</p></div>
     <div class="card" style="margin-top:12px"><h3>Line ${me.l + 1} MVP race</h3>${V.slice(0, 5).map((x, i) => `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--rule)${x.n === meName ? ";font-weight:700" : ""}"><span>${i + 1}. ${esc(x.n)}</span><span class="num">${x.gw}</span></div>`).join("") || '<p class="muted" style="margin:0">Starts with the first result.</p>'}${vr > 5 ? `<p class="muted" style="margin:6px 0 0">You're ${ord(vr)}.</p>` : ""}</div></div></div></div>`;
 }
 function bindYou(){
-  const q = $("#q"); if (q) { q.focus(); q.oninput = () => { const v = q.value.toLowerCase(); document.querySelectorAll("#names button").forEach((b) => b.hidden = !b.dataset.n.toLowerCase().includes(v)); }; }
+  const q = $("#q");
+  if (q) { // Re-apply the typed text after every refresh, so the 5-second pull never wipes the search.
+    const apply = () => { let any = false; document.querySelectorAll("#names button").forEach((b) => { b.hidden = !nameMatch(b.dataset.n, qVal); any = any || !b.hidden; }); $("#nomatch").hidden = any; };
+    q.value = qVal; apply(); q.focus(); q.setSelectionRange(qVal.length, qVal.length); q.oninput = () => { qVal = q.value; apply(); }; }
   document.querySelectorAll("#names button").forEach((b) => b.onclick = async () => {
-    meName = b.dataset.n; lsSet(LS.me, meName);
+    meName = b.dataset.n; lsSet(LS.me, meName); qVal = "";
     const here = checkedInHere();
     if (eventDay() && here && here !== b.dataset.n && !b.dataset.armed) { b.dataset.armed = "1"; meName = here; lsSet(LS.me, here); b.querySelector("span:last-child").insertAdjacentHTML("beforeend", `<br><b>This phone already checked in ${esc(here)}. Tap again to check in this player too.</b>`); return; }
-    if (eventDay() && !CHECKINS[meName]) { b.disabled = true; b.querySelector("span:last-child").insertAdjacentHTML("beforeend", "<br><b>Checking you in…</b>"); await checkIn(meName, true); }
+    if (eventDay() && !present(meName)) { b.disabled = true; b.querySelector("span:last-child").insertAdjacentHTML("beforeend", "<br><b>Checking you in…</b>"); await checkIn(meName, true); }
     render(); scrollTo(0, 0); });
   document.querySelectorAll("[data-rp]").forEach((b) => b.onclick = () => { const id = b.dataset.rp, p = repPick[id] || [null, null]; p[Number(b.dataset.k)] = Number(b.dataset.v); repPick[id] = p; delete repMsg[id]; render(); });
   document.querySelectorAll("[data-repgo]").forEach((b) => b.onclick = () => sendReport(b.dataset.repgo));
   document.querySelectorAll("[data-repedit]").forEach((b) => b.onclick = () => { repPick[b.dataset.repedit] = Object.assign([null, null], { edit: true }); render(); });
-  const n = $("#notme"); if (n) n.onclick = async () => {
-    // A wrong tap on this phone is undone; someone else's check-in is left for the score table to fix.
-    if (eventDay() && checkedInHere() === meName) await checkIn(meName, false);
-    meName = null; lsSet(LS.me, null); render(); };
+  // Only switches whose page this is; check-outs are the score table's job.
+  const n = $("#notme"); if (n) n.onclick = () => { meName = null; lsSet(LS.me, null); render(); };
 }
 
 function controlView(){
   const pin = lsGet(LS.pin, null);
-  const head = `<div class="wrap"><div class="bar"><a class="brand" href="#" style="color:inherit;text-decoration:none">${title()}</a>${syncHTML()}</div>`;
-  if (!pin) return head + `<h1>Scoring</h1><p class="muted">Enter the PIN Cleon gave you. It's saved on this laptop.</p><input class="pin" id="pin" type="password" inputmode="numeric" autocomplete="off" aria-label="PIN"> <button class="btn" type="button" id="pinGo">Unlock</button><div class="msg" id="pinMsg" role="alert"></div></div>`;
+  const head = `<div class="wrap ctl"><div class="bar"><a class="brand" href="#" style="color:inherit;text-decoration:none">${title()}</a>${syncHTML()}</div>`;
+  if (!pin) return head + `<h1>Scoring</h1><p class="muted">Enter the scoring PIN (on the run-of-show PDF, scoring page, or from Akash). It's saved on this laptop.</p><input class="pin" id="pin" type="password" inputmode="numeric" autocomplete="off" aria-label="PIN"> <button class="btn" type="button" id="pinGo">Unlock</button><div class="msg" id="pinMsg" role="alert"></div></div>`;
   const tabs = `<div class="tabs"><button type="button" data-t="courts" aria-pressed="${ctlTab === "courts"}">Courts${pendingReports().length ? ` <span class="pill now">${pendingReports().length} to confirm</span>` : ""}</button><button type="button" data-t="all" aria-pressed="${ctlTab === "all"}">All matches</button><button type="button" data-t="checkin" aria-pressed="${ctlTab === "checkin"}">Check-in</button><button type="button" data-t="setup" aria-pressed="${ctlTab === "setup"}">Load squads</button><button type="button" id="lock" class="btn alt" style="margin-left:auto">Lock this laptop</button></div>`;
   if (ctlTab === "setup" || !SETUP) return head + `<h1>Scoring</h1>` + tabs + setupPanel() + `</div>`;
-  const M = buildMatches(), { st, byCourt } = statusAll(M);
+  const M = buildMatches(), { st, byCourt } = statusAll(M), lbl = (m) => m.final ? "Final, " + m.label : "Round " + (m.r + 1);
   if (ctlTab === "checkin") {
-    const roster = SETUP.lines.flat(2), here = roster.filter((n) => CHECKINS[n]).length;
-    return head + `<h1>Scoring</h1>` + tabs + `<p class="muted">${eventDay() ? `<b style="color:var(--ink)">${here} of ${roster.length}</b> checked in. Players check in by tapping their name after scanning the door QR. Tap a name here to mark someone in or out by hand.` : "Check-in opens on the morning of the Cup."}</p>
-      <div class="ctl-courts">${SETUP.teams.map((t, s) => `<div class="cc"><h3><span class="sw" style="background:${esc(t.color)}"></span>${esc(t.name)}</h3>${SETUP.lines[s].map((q, l) => `<div class="muted" style="font-size:13px;margin-top:8px">Line ${l + 1}</div>${q.map((n) => `<button type="button" class="btn alt" data-ci="${esc(n)}" ${eventDay() ? "" : "disabled"} style="display:flex;justify-content:space-between;width:100%;margin-top:4px;min-height:38px;padding:6px 12px;border-color:${CHECKINS[n] ? "var(--ok)" : "var(--rule)"}"><span>${esc(n)}</span><span class="${CHECKINS[n] ? "" : "muted"}">${CHECKINS[n] ? "Here " + clock12(CHECKINS[n]) : "Not yet"}</span></button>`).join("")}`).join("")}</div>`).join("")}</div><div class="msg" id="ciMsg" role="alert"></div></div>`;
+    const roster = SETUP.lines.flat(2), here = roster.filter(present).length, day = eventDay(), miss = ciMissing == null ? day : ciMissing;
+    const row = (n) => `<div class="cirow"><button type="button" class="btn alt sm" data-ci="${esc(n)}" ${day ? "" : "disabled"} style="display:flex;justify-content:space-between;border-color:${present(n) ? "var(--ok)" : "var(--rule)"}"><span>${esc(n)}${RESERVES[n] ? ` <span class="muted">(reserve)</span>` : ""}</span><span class="${present(n) ? "" : "muted"}">${CHECKINS[n] ? "Here " + clock12(CHECKINS[n]) : RESERVES[n] ? "Reserve playing" : "Not yet"}</span></button><button type="button" class="btn alt sm" data-res="${esc(n)}" aria-pressed="${!!RESERVES[n]}" ${day ? "" : "disabled"} title="A reserve is playing under this name">Reserve</button></div>`;
+    const squads = SETUP.teams.map((t, s) => { const lines = SETUP.lines[s].map((q, l) => { const ns = miss ? q.filter((n) => !present(n)) : q;
+        return ns.length ? `<div class="muted" style="font-size:13px;margin-top:8px">Line ${l + 1}</div>${ns.map(row).join("")}` : ""; }).join("");
+      return `<div class="cc"><h3><span class="sw" style="background:${esc(t.color)}"></span>${esc(t.name)}</h3>${lines || `<p class="muted" style="margin:4px 0 0">Everyone is here.</p>`}</div>`; }).join("");
+    return head + `<h1>Scoring</h1>` + tabs + `<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:0 0 12px"><button type="button" class="btn alt sm" id="ciMiss" aria-pressed="${miss}">Missing only</button><span class="muted">${day ? `<b style="color:var(--ink)">${here} of ${roster.length}</b> here. Tap a name to mark someone in or out. <b>Reserve</b>: a reserve plays under that name (counts as here, no MVP).` : "Check-in opens on the morning of the Cup."}</span></div>
+      <div class="ctl-courts">${squads}</div><div class="msg" id="ciMsg" role="alert"></div></div>`;
   }
   if (ctlTab === "all") {
     return head + `<h1>Scoring</h1>` + tabs + `<p class="muted">Every match in court order. Fix a score by entering it again, or clear it.</p><div class="tw"><table class="all"><thead><tr><th>Court</th><th>Match</th><th>Home</th><th>Away</th><th>Score</th><th></th></tr></thead><tbody>${
       [6,4,2,5,3,1].filter((c) => byCourt[c]).flatMap((c) => byCourt[c]).map((m) => { const sc = SCORES.s[m.id];
-        return `<tr><td class="num">${m.court}</td><td>${m.final ? "Final " + m.label : "Round " + (m.r + 1)}, L${m.l + 1}</td><td>${m.h == null ? "—" : `<span class="sw" style="background:${esc(T(m.h).color)}"></span>${esc((m.hp || []).join(" & "))}`}</td><td>${m.a == null ? "—" : `<span class="sw" style="background:${esc(T(m.a).color)}"></span>${esc((m.ap || []).join(" & "))}`}</td><td class="num">${sc ? sc.join("–") : pendingReports().includes(m.id) ? `<span class="pill now">Sent ${esc((REPORTS[m.id].h || REPORTS[m.id].a).v.join("–"))}</span>` : `<span class="pill ${st[m.id].k}">${st[m.id].k === "now" ? "Playing" : st[m.id].k === "wait" ? "Waiting" : "Later"}</span>`}</td><td>${sc ? `<button class="btn alt" type="button" data-edit="${m.id}" style="min-height:34px;padding:4px 12px">Fix</button> <button class="btn alt" type="button" data-clear="${m.id}" style="min-height:34px;padding:4px 12px">Clear</button>` : m.h != null ? `<button class="btn alt" type="button" data-edit="${m.id}" style="min-height:34px;padding:4px 12px">Enter</button>` : ""}</td></tr>`; }).join("")}</tbody></table></div><div id="editor">${editId ? (() => { const m = M.find((x) => x.id === editId); return m ? `<div class="cc" style="margin-top:12px"><h3>Court ${m.court} · ${m.final ? "Final" : "Round " + (m.r + 1)} · Line ${m.l + 1}</h3>${reportBox(m)}${scoreForm(m)}<button class="btn alt" type="button" id="edClose" style="margin-top:8px">Close</button></div>` : ""; })() : ""}</div></div>`;
+        const row = `<tr data-row="${m.id}"><td class="num">${m.court}</td><td>${m.final ? "Final " + m.label : "Round " + (m.r + 1)}, L${m.l + 1}</td><td>${m.h == null ? "—" : `<span class="sw" style="background:${esc(T(m.h).color)}"></span>${esc((m.hp || []).join(" & "))}`}</td><td>${m.a == null ? "—" : `<span class="sw" style="background:${esc(T(m.a).color)}"></span>${esc((m.ap || []).join(" & "))}`}</td><td class="num">${sc ? sc.join("–") : pendingReports().includes(m.id) ? `<span class="pill now">Sent ${esc((REPORTS[m.id].h || REPORTS[m.id].a).v.join("–"))}</span>` : `<span class="pill ${st[m.id].k}">${st[m.id].k === "now" ? "Playing" : st[m.id].k === "wait" ? "Waiting" : "Later"}</span>`}</td><td>${sc ? `<button class="btn alt sm" type="button" data-edit="${m.id}">Fix</button> <button class="btn alt sm" type="button" data-clear="${m.id}">Clear</button>` : m.h != null ? `<button class="btn alt sm" type="button" data-edit="${m.id}">Enter</button>` : ""}</td></tr>`;
+        // The editor opens right under its row, so the scorekeeper never loses their place.
+        return row + (editId === m.id && m.h != null ? `<tr><td colspan="6" style="padding:0 0 10px"><div class="cc" id="editor"><h3>Court ${m.court} · ${lbl(m)} · Line ${m.l + 1}</h3>${sc ? `<p style="margin:0 0 4px">Saved now: <b>${esc(T(m.h).name)} ${sc[0]}–${sc[1]} ${esc(T(m.a).name)}</b>. Pick the right score and Save.</p>` : ""}${reportBox(m)}${scoreForm(m)}<button class="btn alt sm" type="button" id="edClose" style="margin-top:6px">Close</button></div></td></tr>` : "");
+      }).join("")}</tbody></table></div></div>`;
   }
+  const S = standings(M), r9 = M.filter((m) => m.r === RR - 1), anyFinal = M.some((m) => m.final && SCORES.s[m.id]);
+  let top = "";
+  if (skipped()) top = `<div class="cc wait" style="margin-bottom:12px"><h3>Finals skipped</h3><p style="margin:4px 0">From the round-robin standings: Champions <b>${esc(T(S[0].s).name)}</b> · Third place <b>${esc(T(S[2].s).name)}</b>.</p><button type="button" class="lnk" id="unskip">Undo: play the finals</button></div>`;
+  else if (r9.length && r9.every((m) => SCORES.s[m.id]) && !anyFinal) top = `<div class="cc" style="margin-bottom:12px;display:flex;gap:14px;align-items:center;flex-wrap:wrap"><span>Out of time for the finals? Ending now crowns the round-robin standings: <b>${esc(T(S[0].s).name)}</b> win the Cup, <b>${esc(T(S[2].s).name)}</b> take third.</span><button type="button" class="btn alt sm" id="skipFin">End without finals</button></div>`;
   const cards = [6,4,2,5,3,1].filter((c) => byCourt[c]).map((c) => {
-    const cur = byCourt[c].find((m) => !SCORES.s[m.id]);
-    if (!cur) return `<div class="cc"><h3>Court ${c}</h3><p class="muted">All matches played.</p></div>`;
-    const s = st[cur.id];
-    const missing = eventDay() ? [].concat(cur.hp || [], cur.ap || []).filter((n) => !CHECKINS[n]) : [];
-    return `<div class="cc ${s.k}"><h3>Court ${c} · ${cur.final ? "Final, " + cur.label : "Round " + (cur.r + 1)} · Line ${cur.l + 1}</h3>${missing.length ? `<div class="msg err" style="margin-top:0">Not checked in: ${esc(missing.join(", "))}</div>` : ""}${reportBox(cur)}${scoreForm(cur)}<div class="muted" style="font-size:13px">${s.k === "now" ? "Playing now." : esc(s.why) + ". You can still enter the score if they played."}</div></div>`;
+    const q = byCourt[c], tc = q.filter((m) => !SCORES.s[m.id] && reported(m.id)), cur = q.find((m) => !played(m.id));
+    // Phone reports move the queue on, so unconfirmed ones stack here, oldest first, above the match now on court.
+    const stack = tc.length ? `<div class="tc"><div class="tch">To confirm</div>${tc.map((m) => `<div class="tci"><div class="muted" style="font-size:13px">${lbl(m)}</div>${reportBox(m, true)}${handOpen[m.id] || pickState[m.id] ? scoreForm(m) : ""}</div>`).join("")}</div>` : "";
+    if (!cur) return `<div class="cc"><h3>Court ${c} · Line ${q[0].l + 1}</h3>${stack}<p class="muted" style="margin:4px 0 0">${tc.length ? "No more matches on this court." : "All matches played."}</p></div>`;
+    const s = st[cur.id], ready = cur.h != null, hand = !tc.length || handOpen[cur.id];
+    const missing = eventDay() ? [].concat(cur.hp || [], cur.ap || []).filter((n) => !present(n)) : [];
+    const ff = !ready ? "" : ffOpen === cur.id ? [[cur.hp, cur.ap, "a"], [cur.ap, cur.hp, "h"]].map(([no, yes, win]) => `<button type="button" class="btn alt sm" data-ff="${cur.id}" data-win="${win}" data-who="${esc(yes.join(" & "))}">${esc(no.join(" & "))} didn't show</button>`).join("") + `<button type="button" class="lnk" data-ffx="1">Cancel</button>`
+      : `<button type="button" class="lnk" data-ffo="${cur.id}">Forfeit…</button>`;
+    return `<div class="cc ${s.k}"><h3>Court ${c} · Line ${cur.l + 1}</h3>${stack}<div class="cur">${lbl(cur)} <span class="muted" style="font-weight:400;font-size:14px">· ${s.k === "now" ? "playing now" : esc(s.why)}</span></div>${missing.length ? `<div class="msg err" style="margin:2px 0 0">Not checked in: ${esc(missing.join(", "))}</div>` : ""}${ready && hand ? scoreForm(cur) : ""}<div class="ccf">${ready && !hand ? `<button type="button" class="lnk" data-hand="${cur.id}">Enter by hand</button>` : ""}${ff}</div></div>`;
   }).join("");
   const decs = [0, 1].map((t) => { const F = finalResult(M, t); if (!F || !F.level) return ""; return `<div class="cc wait" style="margin-bottom:12px"><h3>${t ? "Third place" : "Cup final"} is level, ${F.gh}–${F.ga}</h3><p class="muted" style="margin:4px 0 8px">All three courts play one golden point at once; best of three wins. Who won?</p>${[F.h, F.a].map((s2) => `<button type="button" class="btn ${F.w === s2 ? "" : "alt"}" data-dec="${t}|${s2}" style="margin-right:8px">${esc(T(s2).name)}</button>`).join("")}</div>`; }).join("");
-  return head + `<h1>Scoring</h1>` + tabs + decs + `<p class="muted">Players send their score from their phone; it shows in green on that court. Check it, write it on the court sheet, then tap <b>Confirm</b>. Nothing goes on the board until you do. If nobody sent one, the winners tell you: tap the home score, then the away score, then Save. A 5–5 tiebreak is saved as 6–5.</p><div class="ctl-courts">${cards}</div></div>`;
+  return head + `<h1>Scoring</h1>` + tabs + decs + top + `<p class="muted" style="margin:0 0 10px">Phone scores show in green: check them, write them on the court sheet, tap <b>Confirm</b>. No phone score? Tap the home games, the away games, then Save. 5–5 tiebreak = 6–5.</p><div class="ctl-courts six">${cards}</div></div>`;
 }
 /* Reports waiting for the scorekeeper: any unscored match a player has sent a score for. */
-function pendingReports(){ return Object.keys(REPORTS).filter((id) => !SCORES.s[id] && REPORTS[id] && (REPORTS[id].h || REPORTS[id].a)); }
-function reportBox(m){
+function pendingReports(){ return Object.keys(REPORTS).filter((id) => !SCORES.s[id] && reported(id)); }
+/* Each report is phrased from the winner's side ("Samosas won 6–2"); data-v and SCORES stay home–away. */
+function reportBox(m, hand){
   const r = REPORTS[m.id]; if (!r || SCORES.s[m.id] || m.h == null || (!r.h && !r.a)) return "";
-  const rows = [["h", m.h], ["a", m.a]].filter(([k]) => r[k]).map(([k, sq]) => `<div style="margin:2px 0"><span class="sw" style="background:${esc(T(sq).color)}"></span><b>${esc(r[k].by)}</b> sent <b class="num">${r[k].v.join("–")}</b> <span class="muted">${clock12(r[k].at)}</span></div>`).join("");
-  const vals = [...new Set([r.h, r.a].filter(Boolean).map((x) => x.v.join("–")))];
-  const note = r.h && r.a ? (vals.length === 1 ? "Both pairs sent the same score." : "The pairs sent different scores. Ask them, then confirm the right one or enter it below.") : "One pair has sent a score.";
-  return `<div class="msg ${vals.length > 1 ? "err" : "ok"}" style="margin:0 0 10px;display:block"><div style="font-weight:600;margin-bottom:4px">Sent from a phone (home–away)</div>${rows}<div class="muted" style="font-size:13px;margin:4px 0 8px">${note}</div>
-    ${vals.map((v) => `<button class="btn" type="button" data-confirm="${m.id}" data-v="${v}" style="margin-right:8px">Confirm ${v}</button>`).join("")}<button class="btn alt" type="button" data-dismiss="${m.id}">Dismiss</button></div>`;
+  const by = {}; ["h", "a"].filter((k) => r[k]).forEach((k) => { const v = r[k].v.join("–"); (by[v] = by[v] || []).push(r[k]); });
+  const vals = Object.keys(by), hm = (at) => clock12(at).replace(/ [AP]M$/, "");
+  const say = (v) => { const [x, y] = v.split("–").map(Number), w = x > y ? m.h : m.a; return { w, t: `${nick(w)} ${Math.max(x, y)}–${Math.min(x, y)}` }; };
+  const rows = vals.map((v) => { const { w } = say(v), [x, y] = v.split("–").map(Number);
+    return `<div style="margin:2px 0"><span class="sw" style="background:${esc(T(w).color)}"></span><b>${esc(nick(w))} won <span class="num">${Math.max(x, y)}–${Math.min(x, y)}</span></b> · sent by ${by[v].map((e) => `${esc(e.by)}${hm(e.at) ? ", " + esc(hm(e.at)) : ""}`).join(" and ")}</div>`; }).join("");
+  const note = vals.length > 1 ? `<div class="muted" style="font-size:13px;margin:2px 0">The pairs sent different scores. Ask them, then confirm the right one${hand ? " or enter it by hand" : " or enter it below"}.</div>` : "";
+  return `<div class="msg ${vals.length > 1 ? "err" : "ok"}" style="margin:0 0 4px;display:block">${rows}${note}<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:4px">${vals.map((v) => `<button class="btn sm" type="button" data-confirm="${m.id}" data-v="${v}">Confirm ${esc(say(v).t)}</button>`).join("")}<button class="btn alt sm" type="button" data-dismiss="${m.id}">Dismiss</button>${hand && !handOpen[m.id] && !pickState[m.id] ? `<button type="button" class="lnk" data-hand="${m.id}">Enter by hand</button>` : ""}</div></div>`;
 }
 async function clearReport(id){ delete REPORTS[id]; saveCache(); render(); try { await rpc(P + "_report_clear", { p_id: id, p_pin: lsGet(LS.pin, "") }); } catch(e){} }
 function scoreForm(m){
   if (m.h == null) return `<p class="muted">Squads are set when round 9 is finished.</p>`;
   const p = pickState[m.id] || [null, null], max = (SETUP.format && SETUP.format.gamesTo) || 6;
   const btns = (side) => `<div class="pick" role="group" aria-label="${side ? "Away" : "Home"} games">${Array.from({ length: max + 1 }, (_, v) => `<button type="button" data-m="${m.id}" data-side="${side}" data-v="${v}" aria-pressed="${p[side] === v}">${v}</button>`).join("")}</div>`;
-  return `<div class="row">${sideHTML(m.h, m.hp)}</div>${btns(0)}<div class="row">${sideHTML(m.a, m.ap)}</div>${btns(1)}
-    <div style="margin-top:10px;display:flex;gap:8px;align-items:center"><button class="btn" type="button" data-save="${m.id}">Save ${p[0] != null && p[1] != null ? p.join("–") : ""}</button></div><div class="msg" id="msg-${m.id.replace(/\|/g, "-")}" role="alert"></div>`;
+  return `<div class="row">${sideHTML(m.h, m.hp)}${btns(0)}</div><div class="row">${sideHTML(m.a, m.ap)}${btns(1)}</div>
+    <div style="margin-top:6px;display:flex;gap:10px;align-items:center"><button class="btn sm" type="button" data-save="${m.id}">Save ${p[0] != null && p[1] != null ? p.join("–") : ""}</button><div class="msg" style="margin:0" id="msg-${m.id.replace(/\|/g, "-")}" role="alert"></div></div>`;
 }
 function validScore(p){
   const max = (SETUP.format && SETUP.format.gamesTo) || 6;
@@ -549,10 +634,12 @@ function validScore(p){
   return null;
 }
 function setupPanel(){
+  // The live board makes you type CLEAR, because practice taught "Reset test data" in this same spot.
+  const clear = TEST ? `<button class="btn alt" type="button" id="clearAll">Clear all scores</button>` : `<input class="pin" id="clearTxt" style="width:160px;font-size:16px;letter-spacing:.05em" placeholder="Type CLEAR" autocomplete="off" aria-label="Type CLEAR to turn on the button"> <button class="btn alt" type="button" id="clearAll" disabled>Clear all scores</button>`;
   return `<div class="card"><h2>Load squads and pairings</h2><p class="muted">In the Diwali Cup Kit, open Pairings and press "Copy scoreboard setup", then paste it here. Loading new squads replaces the old ones; scores already entered stay.</p>
     <textarea id="setupIn" aria-label="Scoreboard setup">${SETUP ? esc(JSON.stringify(SETUP)) : ""}</textarea>
     <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="setupGo">Check and load</button></div><div class="msg" id="setupMsg" role="alert"></div></div>
-    ${TEST ? `<div class="card" style="margin-top:16px"><h2>Start a fresh rehearsal</h2><p class="muted">Clears test scores, check-ins and phone reports. Squads stay loaded.</p><button class="btn alt" type="button" id="resetTest">Reset test data</button><div class="msg" id="resetMsg" role="alert"></div></div>` : ""}<div class="card" style="margin-top:16px"><h2>After a practice run</h2><p class="muted">Clears every score entered so far. Use it only after practising, before the real day starts.</p><button class="btn alt" type="button" id="clearAll">Clear all scores</button><div class="msg" id="clearMsg" role="alert"></div></div>`;
+    ${TEST ? `<div class="card" style="margin-top:16px"><h2>Start a fresh rehearsal</h2><p class="muted">Clears test scores, check-ins and phone reports. Squads stay loaded.</p><button class="btn alt" type="button" id="resetTest">Reset test data</button><div class="msg" id="resetMsg" role="alert"></div></div>` : ""}<div class="card" style="margin-top:16px"><h2>After a practice run</h2><p class="muted">Clears every score entered so far. Use it only after practising, before the real day starts.</p>${clear}<div class="msg" id="clearMsg" role="alert"></div></div>`;
 }
 function checkSetup(x){
   const e = [];
@@ -573,26 +660,47 @@ function checkSetup(x){
   }));
   return e;
 }
+async function pinHash(v){ try { const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(P + ":" + v)); return [...new Uint8Array(d)].map((x) => x.toString(16).padStart(2, "0")).join(""); } catch(e){ return null; } }
 function bindControl(){
   const pg = $("#pinGo");
-  if (pg) { const go = async () => { const v = $("#pin").value.trim(); $("#pinMsg").textContent = "Checking…"; $("#pinMsg").className = "msg";
-    try { const ok = await rpc(P + "_check_pin", { p_pin: v }); if (ok === true) { lsSet(LS.pin, v); render(); } else { $("#pinMsg").textContent = "That PIN isn't right. Check the 6 digits Cleon sent."; $("#pinMsg").className = "msg err"; } }
-    catch(e){ if (/locked/.test(e.message)) { $("#pinMsg").textContent = "Too many wrong PINs in the last hour, so scoring is locked for now. Text Cleon."; $("#pinMsg").className = "msg err"; return; } $("#pinMsg").textContent = "Can't check the PIN: this laptop isn't online. Join the club wifi or a hotspot and try again."; $("#pinMsg").className = "msg err"; } };
+  if (pg) { const go = async () => { const v = $("#pin").value.trim(), say = (t, err) => { $("#pinMsg").textContent = t; $("#pinMsg").className = "msg" + (err ? " err" : ""); }; say("Checking…");
+    try { const ok = await rpc(P + "_check_pin", { p_pin: v }); if (ok === true) { lsSet(LS.pin, v); lsSet(LS.pinok, await pinHash(v)); render(); } else say("That PIN isn't right. Check the scoring page of the run-of-show PDF, or ask Akash.", true); }
+    catch(e){ if (/locked/.test(e.message)) return say("Too many wrong PINs, so scoring is locked for up to an hour. Keep scores on the court sheets and enter them after.", true);
+      // Offline: accept the last PIN that worked on this laptop. Queued scores send once the signal is back.
+      const h = await pinHash(v); if (h && h === lsGet(LS.pinok, null)) { lsSet(LS.pin, v); online = false; render(); return; }
+      say("Can't check the PIN: this laptop isn't online. Join the club wifi or a hotspot and try again.", true); } };
     pg.onclick = go; $("#pin").onkeydown = (e) => { if (e.key === "Enter") go(); }; return; }
-  document.querySelectorAll(".tabs [data-t]").forEach((b) => b.onclick = () => { ctlTab = b.dataset.t; render(); });
-  const lk = $("#lock"); if (lk) lk.onclick = () => { lsSet(LS.pin, null); render(); };
-  document.querySelectorAll(".pick button").forEach((b) => b.onclick = () => { const id = b.dataset.m; const p = pickState[id] || [null, null]; p[Number(b.dataset.side)] = Number(b.dataset.v); pickState[id] = p; render(); });
-  document.querySelectorAll("[data-save]").forEach((b) => b.onclick = () => { const id = b.dataset.save, p = pickState[id] || [null, null], err = validScore(p), el = $("#msg-" + id.replace(/\|/g, "-"));
-    if (err) { el.textContent = err; el.className = "msg err"; return; } delete pickState[id]; if (editId === id) editId = null; setScore(id, p); });
-  document.querySelectorAll("[data-clear]").forEach((b) => b.onclick = () => { b.textContent = "Tap again to clear"; if (b.dataset.armed) setScore(b.dataset.clear, null); b.dataset.armed = "1"; });
-  document.querySelectorAll("[data-edit]").forEach((b) => b.onclick = () => { editId = b.dataset.edit; render(); const ed = $("#editor"); if (ed) ed.scrollIntoView({ block:"center" }); });
-  const ec = $("#edClose"); if (ec) ec.onclick = () => { editId = null; render(); };
-  document.querySelectorAll("[data-confirm]").forEach((b) => b.onclick = () => { const id = b.dataset.confirm, v = b.dataset.v.split("–").map(Number); delete pickState[id]; if (editId === id) editId = null; setScore(id, v); clearReport(id); });
-  document.querySelectorAll("[data-dismiss]").forEach((b) => b.onclick = () => { if (!b.dataset.armed) { b.dataset.armed = "1"; b.textContent = "Tap again to dismiss"; return; } clearReport(b.dataset.dismiss); });
-  document.querySelectorAll("[data-dec]").forEach((b) => b.onclick = () => { const [t, w] = b.dataset.dec.split("|").map(Number); setDecider(t, w); });
-  document.querySelectorAll("[data-ci]").forEach((b) => b.onclick = async () => { const n = b.dataset.ci; b.disabled = true; const ok = await checkIn(n, !CHECKINS[n]); if (!ok) { $("#ciMsg").textContent = "Couldn't change that check-in."; $("#ciMsg").className = "msg err"; } render(); });
-  const ca = $("#clearAll");
-  if (ca) ca.onclick = async () => { if (!ca.dataset.armed) { ca.dataset.armed = "1"; ca.textContent = "Tap again to clear all " + Object.keys(SCORES.s).length + " scores"; return; }
+  const all = (sel, fn) => document.querySelectorAll(sel).forEach((b) => b.onclick = () => fn(b));
+  all(".tabs [data-t]", (b) => { ctlTab = b.dataset.t; render(); });
+  all("#lock", (b) => { if (!arm(b, "Tap again to lock")) return; lsSet(LS.pin, null); render(); });
+  all(".pick button", (b) => { const id = b.dataset.m; const p = pickState[id] || [null, null]; p[Number(b.dataset.side)] = Number(b.dataset.v); pickState[id] = p; pickAt[id] = Date.now(); render(); });
+  const done = (id) => { delete pickState[id]; delete pickAt[id]; delete handOpen[id]; if (editId === id) editId = null; };
+  all("[data-save]", (b) => { const id = b.dataset.save, p = pickState[id] || [null, null], err = validScore(p), el = $("#msg-" + id.replace(/\|/g, "-"));
+    if (err) { el.textContent = err; el.className = "msg err"; return; } done(id); setScore(id, p); });
+  all("[data-clear]", (b) => { if (arm(b, "Tap again to clear")) setScore(b.dataset.clear, null); });
+  all("[data-edit]", (b) => { const id = b.dataset.edit, y = b.getBoundingClientRect().top;
+    if (editId && editId !== id) delete pickState[editId];
+    editId = id; if (SCORES.s[id]) pickState[id] = SCORES.s[id].slice(); render();
+    // Keep the tapped row where it was on screen.
+    const nb = document.querySelector(`[data-row="${CSS.escape(id)}"] [data-edit]`); if (nb) scrollBy(0, nb.getBoundingClientRect().top - y); });
+  all("#edClose", () => { delete pickState[editId]; editId = null; render(); });
+  all("[data-confirm]", (b) => { const id = b.dataset.confirm, v = b.dataset.v.split("–").map(Number); done(id); setScore(id, v); clearReport(id); });
+  all("[data-dismiss]", (b) => { if (arm(b, "Tap again to dismiss")) clearReport(b.dataset.dismiss); });
+  all("[data-hand]", (b) => { handOpen[b.dataset.hand] = true; render(); });
+  all("[data-ffo]", (b) => { ffOpen = b.dataset.ffo; render(); });
+  all("[data-ffx]", () => { ffOpen = null; render(); });
+  all("[data-ff]", (b) => { if (!arm(b, `Tap again: 6–0 to ${b.dataset.who}`)) return; const id = b.dataset.ff; ffOpen = null; done(id); setScore(id, b.dataset.win === "h" ? [6, 0] : [0, 6]); });
+  all("[data-dec]", (b) => { const [t, w] = b.dataset.dec.split("|").map(Number); if (arm(b, `Tap again: ${T(w).name} won the decider`)) setFin(t, { w }); });
+  all("#skipFin", (b) => { if (arm(b, "Tap again to end without finals")) setFin(0, { skip: true }); });
+  all("#unskip", () => setFin(0, { skip: false }));
+  all("#ciMiss", () => { ciMissing = !(ciMissing == null ? eventDay() : ciMissing); render(); });
+  all("[data-ci]", async (b) => { const n = b.dataset.ci; if (CHECKINS[n] && !arm(b, `Tap again to mark ${n} out`)) return; b.disabled = true; const ok = await checkIn(n, !CHECKINS[n]); render(); if (!ok) { $("#ciMsg").textContent = "Couldn't change that check-in."; $("#ciMsg").className = "msg err"; } });
+  all("[data-res]", async (b) => { const n = b.dataset.res; b.disabled = true;
+    try { const r = await rpc(P + "_reserve", { p_name: n, p_on: !RESERVES[n], p_pin: lsGet(LS.pin, "") }); if (r && r.reserve) RESERVES[(r && r.name) || n] = true; else delete RESERVES[(r && r.name) || n]; online = true; saveCache(); render(); }
+    catch(e){ render(); $("#ciMsg").textContent = /pin/i.test(e.message) ? "The PIN on this laptop isn't right. Lock and unlock with the correct PIN." : "Couldn't change that: this laptop is offline. Try again on wifi."; $("#ciMsg").className = "msg err"; } });
+  const ca = $("#clearAll"), ct = $("#clearTxt");
+  if (ct) ct.oninput = () => { ca.disabled = ct.value.trim() !== "CLEAR"; };
+  if (ca) ca.onclick = async () => { if (TEST ? !arm(ca, "Tap again to clear all " + Object.keys(SCORES.s).length + " scores") : (!ct || ct.value.trim() !== "CLEAR")) return;
     try { await rpc("cup_write", { p_key: P + "_scores", p_doc:{ s:{}, at:{}, fin:{}, v:3, clearedAt: Date.now() }, p_pin: lsGet(LS.pin, "") }); lsSet(LS.queue, {}); SCORES = { s:{}, at:{}, fin:{} }; REPORTS = {}; saveCache(); rpc(P + "_report_clear", { p_id:"all", p_pin: lsGet(LS.pin, "") }).catch(() => {}); $("#clearMsg").textContent = "All scores cleared."; $("#clearMsg").className = "msg ok"; }
     catch(e){ $("#clearMsg").textContent = "Couldn't clear: check the PIN and the connection."; $("#clearMsg").className = "msg err"; } };
   const rt = $("#resetTest");
@@ -614,7 +722,7 @@ function postersView(){
   const tools = `<div class="noprint" style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap"><a class="brand" href="#" style="color:inherit;text-decoration:none">${title()}</a><button class="btn" type="button" id="print">Print court sheets</button><span class="muted">One sheet per court, the door QR poster, then one sheet per squad.</span></div>`;
   const pair = (s, p) => s == null ? "" : `<b>${esc(T(s).name)}</b><br>${esc(p.join(" & "))}`;
   const courts = [6,4,2,5,3,1].filter((c) => byCourt[c]).map((c) => { const q = byCourt[c].sort((a, b) => a.r - b.r);
-    return `<section class="poster"><h1>Court ${c}</h1><div class="sub">${esc(SETUP.title || "The Diwali Cup")} · Line ${q[0].l + 1} · play these in order</div>
+    return `<section class="poster"><div class="sheetqr">${QR_SVG}<span>Scan for your next match / send your score</span></div><h1>Court ${c}</h1><div class="sub">${esc(SETUP.title || "The Diwali Cup")} · Line ${q[0].l + 1} · play these in order</div>
       <table><thead><tr><th>#</th><th>Round</th><th>Home</th><th>Away</th><th class="score">Score</th></tr></thead><tbody>${q.map((m, i) => `<tr><td class="o">${i + 1}</td><td>${m.final ? "Final<br>" + m.label : "Round " + (m.r + 1)}</td><td>${m.final ? `${m.label.split(" v ")[0]} place squad` : pair(m.h, m.hp)}</td><td>${m.final ? `${m.label.split(" v ")[1]} place squad` : pair(m.a, m.ap)}</td><td class="score"></td></tr>`).join("")}</tbody></table>
       <p class="rule">Start your next match as soon as this court is free and all four players are here. If a player is still on another court, wait for them. One set to 6, golden point at deuce, tiebreak at 5–5. Send your score from your phone (scan the QR, tap your name), or give it to the score table.</p></section>`; }).join("");
   const door = `<section class="poster doorqr"><h1>Check in here</h1><div class="sub">Scan, then tap your name. That checks you in and opens your matches: court, partner, opponents and results, live all day.</div>${QR_SVG}<p style="font:700 18px var(--text);margin-top:12px">${esc(BASE.replace(/^https?:\/\//, ""))}#you</p></section>`;
@@ -624,7 +732,7 @@ function postersView(){
 function bindPosters(){ const p = $("#print"); if (p) p.onclick = () => window.print(); }
 
 const QR_SVG = (window.QR_SVG || "");
-window.__dw = { buildMatches, setScore, finalResult, scores: () => SCORES, reports: () => REPORTS };   // used by the test script only
+window.__dw = { buildMatches, setScore, finalResult, statusAll, standings, mvp, podium, pull, scores: () => SCORES, reports: () => REPORTS };   // used by the test script only
 route(); pull(); setInterval(pull, 5000);
 addEventListener("online", pull);
 })();
