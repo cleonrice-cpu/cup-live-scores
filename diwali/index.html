@@ -163,11 +163,11 @@ const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == n
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} };
 
 /* ---------- state ---------- */
-let SETUP = null, SCORES = { s: {}, at: {}, fin: {} }, CHECKINS = {}, online = true, lastSeen = 0;
-let editId = null, lastSig = "", deferred = false;
+let SETUP = null, SCORES = { s: {}, at: {}, fin: {} }, CHECKINS = {}, REPORTS = {}, online = true, lastSeen = 0;
+let editId = null, lastSig = "", deferred = false, repPick = {}, repMsg = {};
 /* Last good copy of everything, so a reload with no signal still shows squads, scores and check-ins. */
-(function loadCache(){ const c = lsGet("dw.cache", null); if (c) { SETUP = c.setup || null; SCORES = Object.assign({ s:{}, at:{}, fin:{} }, c.scores || {}); CHECKINS = c.checkins || {}; mergeQueue(); } })();
-function saveCache(){ lsSet("dw.cache", { setup: SETUP, scores: SCORES, checkins: CHECKINS, savedAt: Date.now() }); }
+(function loadCache(){ const c = lsGet("dw.cache", null); if (c) { SETUP = c.setup || null; SCORES = Object.assign({ s:{}, at:{}, fin:{} }, c.scores || {}); CHECKINS = c.checkins || {}; REPORTS = c.reports || {}; mergeQueue(); } })();
+function saveCache(){ lsSet("dw.cache", { setup: SETUP, scores: SCORES, checkins: CHECKINS, reports: REPORTS, savedAt: Date.now() }); }
 const ord = (n) => n + (["th","st","nd","rd"][((n % 100) - 20) % 10] || ["th","st","nd","rd"][n % 100] || "th");
 let view = "home", meName = lsGet(LS.me, null), ctlTab = "courts", pickState = {};
 
@@ -251,10 +251,10 @@ const sideHTML = (s, pair, cls) => s == null ? `<div class="side ${cls || ""}"><
 /* ---------- data ---------- */
 async function pull(){
   try {
-    const r = await fetch(SB_URL + "/rest/v1/cup_state?select=key,doc,updated_at&key=in.(dw_setup,dw_scores,dw_checkins)", { headers: HDR, cache: "no-store" });
+    const r = await fetch(SB_URL + "/rest/v1/cup_state?select=key,doc,updated_at&key=in.(dw_setup,dw_scores,dw_checkins,dw_reports)", { headers: HDR, cache: "no-store" });
     if (!r.ok) throw new Error(r.status);
     const rows = await r.json(); online = true; lastSeen = Date.now();
-    rows.forEach((row) => { if (row.key === "dw_setup") SETUP = row.doc; if (row.key === "dw_scores") mergeRemote(row.doc); if (row.key === "dw_checkins") CHECKINS = (row.doc && row.doc.in) || {}; });
+    rows.forEach((row) => { if (row.key === "dw_setup") SETUP = row.doc; if (row.key === "dw_scores") mergeRemote(row.doc); if (row.key === "dw_checkins") CHECKINS = (row.doc && row.doc.in) || {}; if (row.key === "dw_reports") REPORTS = (row.doc && row.doc.r) || {}; });
     saveCache();
   } catch(e){ online = false; }
   await flush(); await flushCheckin(); renderIfChanged();
@@ -345,7 +345,7 @@ function syncHTML(){
 function noSetup(){ return `<div class="empty"><b>Squads aren't loaded yet</b>The scoring laptop loads them from the Diwali Cup Kit before the day.</div>`; }
 
 /* ---------- views ---------- */
-function sig(){ return JSON.stringify([SETUP && SETUP.event, SETUP && JSON.stringify(SETUP).length, SCORES, CHECKINS, online, Object.keys(lsGet(LS.queue, {})).length, eventDay()]); }
+function sig(){ return JSON.stringify([SETUP && SETUP.event, SETUP && JSON.stringify(SETUP).length, SCORES, CHECKINS, REPORTS, online, Object.keys(lsGet(LS.queue, {})).length, eventDay()]); }
 function typing(){ const a = document.activeElement; return a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA"); }
 function renderIfChanged(){ const g = sig(); if (g === lastSig) return; if (typing()) { deferred = true; return; } render(); }
 document.addEventListener("focusout", () => setTimeout(() => { if (deferred && !typing()) { deferred = false; render(); } }, 50));
@@ -398,6 +398,38 @@ function tvView(){
     <div class="qr">${QR_SVG}<p>${done === 0 && eventDay() ? "Scan and tap your name to check in" : "Scan for your matches"}</p></div></div></div></div>`;
 }
 
+/* ---------- player score reports ----------
+   A player reports their own match from their phone. It shows as pending at the score table and only goes
+   on the board when the scorekeeper confirms it. Scores are sent home–away; the player picks from their side. */
+const REP_ERR = { already_scored: "The score table already has this score.", not_in_match: "That match isn't yours.", bad_score: "One side has to reach 6, and it can't be level.",
+  not_today: "Score reporting opens on the day of the Cup.", slow_down: "Too many reports from this name. Give the score to the score table.", not_loaded: "Squads aren't loaded yet." };
+function reportHTML(m){
+  const h = m.hp.includes(meName), side = h ? "h" : "a", mine = REPORTS[m.id] && REPORTS[m.id][side];
+  const max = (SETUP.format && SETUP.format.gamesTo) || 6, p = repPick[m.id] || [null, null], msg = repMsg[m.id];
+  const opp = h ? m.ap : m.hp, partner = (h ? m.hp : m.ap).find((n) => n !== meName);
+  if (mine && !p.edit) { const v = h ? mine.v : [mine.v[1], mine.v[0]];
+    return `<div class="card rep" style="margin-top:12px"><h3>Score sent: ${v[0]}–${v[1]} ${v[0] > v[1] ? "win" : "loss"}</h3><p class="muted" style="margin:0 0 8px">Waiting for the score table to confirm it. It goes on the board once they do.</p><button class="btn alt" type="button" data-repedit="${m.id}" style="min-height:38px">Change it</button></div>`; }
+  const btns = (k, label) => `<div class="muted" style="font-size:14px;margin-top:8px">${label}</div><div class="pick" role="group" aria-label="${esc(label)}">${Array.from({ length: max + 1 }, (_, v) => `<button type="button" data-rp="${m.id}" data-k="${k}" data-v="${v}" aria-pressed="${p[k] === v}">${v}</button>`).join("")}</div>`;
+  return `<div class="card rep" style="margin-top:12px"><h3>Finished? Report the score</h3>${btns(0, "Games for you & " + partner)}${btns(1, "Games for " + opp.join(" & "))}
+    <div style="margin-top:10px"><button class="btn" type="button" data-repgo="${m.id}">Send ${p[0] != null && p[1] != null ? p[0] + "–" + p[1] : "score"}</button></div>
+    <div class="msg ${msg && msg.err ? "err" : ""}" role="alert">${msg ? esc(msg.t) : "The score table confirms it before it goes on the board. A 5–5 tiebreak counts as 6–5."}</div></div>`;
+}
+async function sendReport(id){
+  const M = buildMatches(), m = M.find((x) => x.id === id); if (!m) return;
+  const h = m.hp.includes(meName), p = repPick[id] || [null, null];
+  const err = validScore(p); if (err) { repMsg[id] = { t: err, err: true }; render(); return; }
+  const v = h ? [p[0], p[1]] : [p[1], p[0]];
+  repMsg[id] = { t: "Sending…" }; render();
+  try {
+    const r = await rpc("dw_report", { p_id: id, p_name: meName, p_v: v, p_side: h ? "h" : "a" });
+    REPORTS[id] = Object.assign({}, REPORTS[id] || {}, { [r.side]: { v: r.v, by: meName, at: r.at } });
+    delete repPick[id]; delete repMsg[id]; online = true; saveCache();
+  } catch(e){
+    const k = Object.keys(REP_ERR).find((x) => e.message.includes(x));
+    repMsg[id] = { t: k ? REP_ERR[k] : "Couldn't send: no signal. Tell the score table the score instead.", err: true };
+  }
+  render();
+}
 function youView(){
   if (!SETUP) return `<div class="wrap"><div class="bar"><a class="brand" href="#" style="color:inherit;text-decoration:none">${title()}</a>${syncHTML()}</div>${noSetup()}</div>`;
   const all = []; SETUP.lines.forEach((ls, s) => ls.forEach((q, l) => q.forEach((n) => all.push({ n, s, l }))));
@@ -426,14 +458,14 @@ function youView(){
     const k = s.k === "now" ? "" : "wait";
     nextHTML = `<div class="next ${k}"><div class="muted">${s.k === "now" ? "Up now, go to your court" : ahead > 0 ? `Next for you, after ${ahead} match${ahead > 1 ? "es" : ""} on this court` : "Up next for you"}</div>
       <div class="big">Court ${nextM.court}</div><div style="margin-top:6px">${nextM.final ? "Final, " + nextM.label : "Round " + (nextM.r + 1)} · with <b>${esc(partner)}</b> v ${esc(opp.join(" & "))} (${esc(T(os).name)})</div>
-      ${s.k === "wait" ? `<div class="muted" style="margin-top:4px">${esc(s.why)}</div>` : ""}</div>`;
+      ${s.k === "wait" ? `<div class="muted" style="margin-top:4px">${esc(s.why)}</div>` : ""}</div>${s.k === "now" && eventDay() ? reportHTML(nextM) : ""}`;
   } else if (finalPending) {
     nextHTML = `<div class="next wait"><div class="muted">Your last match</div><div class="big">Final</div><div style="margin-top:6px">Line ${me.l + 1}, with <b>${esc(myFinalPair.find((n) => n !== meName))}</b>. Your court shows here once round 9 is finished everywhere.</div></div>`;
   } else nextHTML = `<div class="next done"><div class="muted">All your matches are played</div><div class="big num">${P.gw}–${P.gl}</div><div>games won and lost today</div></div>`;
   const list = mine.map((m) => { const sc = SCORES.s[m.id], s = st[m.id], h = m.hp.includes(meName);
     const partner = (h ? m.hp : m.ap).find((n) => n !== meName), opp = h ? m.ap : m.hp, os = h ? m.a : m.h;
     const score = sc ? (h ? sc : [sc[1], sc[0]]) : null;
-    return `<div class="m ${sc ? "me-done" : ""}"><div class="ctn">${m.court}<small>court</small></div><div class="who">${m.final ? "Final" : "Round " + (m.r + 1)} <span class="pill ${s.k}">${s.k === "now" ? "Up now" : s.k === "wait" ? "Waiting" : s.k === "done" ? (score[0] > score[1] ? "Won" : "Lost") : "Later"}</span><br>with <b>${esc(partner)}</b> v ${esc(opp.join(" & "))} <span class="muted">(${esc(T(os).short)})</span></div><div class="sc num">${score ? score.join("–") : ""}</div></div>`; }).join("");
+    return `<div class="m ${sc ? "me-done" : ""}"><div class="ctn">${m.court}<small>court</small></div><div class="who">${m.final ? "Final" : "Round " + (m.r + 1)} <span class="pill ${s.k}">${!sc && REPORTS[m.id] && REPORTS[m.id][h ? "h" : "a"] ? "Score sent" : s.k === "now" ? "Up now" : s.k === "wait" ? "Waiting" : s.k === "done" ? (score[0] > score[1] ? "Won" : "Lost") : "Later"}</span><br>with <b>${esc(partner)}</b> v ${esc(opp.join(" & "))} <span class="muted">(${esc(T(os).short)})</span></div><div class="sc num">${score ? score.join("–") : ""}</div></div>`; }).join("");
   const S = standings(M), rank = S.findIndex((x) => x.s === me.s) + 1, V = mvp(M)[me.l], vr = V.findIndex((x) => x.n === meName) + 1;
   return `<div class="wrap"><div class="bar"><a class="brand" href="#" style="color:inherit;text-decoration:none">${title()}</a>${syncHTML()}</div>
     <h1>${esc(meName)}</h1><div class="muted"><span class="sw" style="background:${esc(T(me.s).color)}"></span>${esc(T(me.s).name)} · Line ${me.l + 1} · <button class="btn alt" type="button" id="notme" style="min-height:32px;padding:4px 12px">Not you?</button></div>
@@ -450,6 +482,9 @@ function bindYou(){
     if (eventDay() && here && here !== b.dataset.n && !b.dataset.armed) { b.dataset.armed = "1"; meName = here; lsSet(LS.me, here); b.querySelector("span:last-child").insertAdjacentHTML("beforeend", `<br><b>This phone already checked in ${esc(here)}. Tap again to check in this player too.</b>`); return; }
     if (eventDay() && !CHECKINS[meName]) { b.disabled = true; b.querySelector("span:last-child").insertAdjacentHTML("beforeend", "<br><b>Checking you in…</b>"); await checkIn(meName, true); }
     render(); scrollTo(0, 0); });
+  document.querySelectorAll("[data-rp]").forEach((b) => b.onclick = () => { const id = b.dataset.rp, p = repPick[id] || [null, null]; p[Number(b.dataset.k)] = Number(b.dataset.v); repPick[id] = p; delete repMsg[id]; render(); });
+  document.querySelectorAll("[data-repgo]").forEach((b) => b.onclick = () => sendReport(b.dataset.repgo));
+  document.querySelectorAll("[data-repedit]").forEach((b) => b.onclick = () => { repPick[b.dataset.repedit] = Object.assign([null, null], { edit: true }); render(); });
   const n = $("#notme"); if (n) n.onclick = async () => {
     // A wrong tap on this phone is undone; someone else's check-in is left for the score table to fix.
     if (eventDay() && checkedInHere() === meName) await checkIn(meName, false);
@@ -460,7 +495,7 @@ function controlView(){
   const pin = lsGet(LS.pin, null);
   const head = `<div class="wrap"><div class="bar"><a class="brand" href="#" style="color:inherit;text-decoration:none">${title()}</a>${syncHTML()}</div>`;
   if (!pin) return head + `<h1>Scoring</h1><p class="muted">Enter the PIN Cleon gave you. It's saved on this laptop.</p><input class="pin" id="pin" type="password" inputmode="numeric" autocomplete="off" aria-label="PIN"> <button class="btn" type="button" id="pinGo">Unlock</button><div class="msg" id="pinMsg" role="alert"></div></div>`;
-  const tabs = `<div class="tabs"><button type="button" data-t="courts" aria-pressed="${ctlTab === "courts"}">Courts</button><button type="button" data-t="all" aria-pressed="${ctlTab === "all"}">All matches</button><button type="button" data-t="checkin" aria-pressed="${ctlTab === "checkin"}">Check-in</button><button type="button" data-t="setup" aria-pressed="${ctlTab === "setup"}">Load squads</button><button type="button" id="lock" class="btn alt" style="margin-left:auto">Lock this laptop</button></div>`;
+  const tabs = `<div class="tabs"><button type="button" data-t="courts" aria-pressed="${ctlTab === "courts"}">Courts${pendingReports().length ? ` <span class="pill now">${pendingReports().length} to confirm</span>` : ""}</button><button type="button" data-t="all" aria-pressed="${ctlTab === "all"}">All matches</button><button type="button" data-t="checkin" aria-pressed="${ctlTab === "checkin"}">Check-in</button><button type="button" data-t="setup" aria-pressed="${ctlTab === "setup"}">Load squads</button><button type="button" id="lock" class="btn alt" style="margin-left:auto">Lock this laptop</button></div>`;
   if (ctlTab === "setup" || !SETUP) return head + `<h1>Scoring</h1>` + tabs + setupPanel() + `</div>`;
   const M = buildMatches(), { st, byCourt } = statusAll(M);
   if (ctlTab === "checkin") {
@@ -471,18 +506,29 @@ function controlView(){
   if (ctlTab === "all") {
     return head + `<h1>Scoring</h1>` + tabs + `<p class="muted">Every match in court order. Fix a score by entering it again, or clear it.</p><div class="tw"><table class="all"><thead><tr><th>Court</th><th>Match</th><th>Home</th><th>Away</th><th>Score</th><th></th></tr></thead><tbody>${
       [6,4,2,5,3,1].filter((c) => byCourt[c]).flatMap((c) => byCourt[c]).map((m) => { const sc = SCORES.s[m.id];
-        return `<tr><td class="num">${m.court}</td><td>${m.final ? "Final " + m.label : "Round " + (m.r + 1)}, L${m.l + 1}</td><td>${m.h == null ? "—" : `<span class="sw" style="background:${esc(T(m.h).color)}"></span>${esc((m.hp || []).join(" & "))}`}</td><td>${m.a == null ? "—" : `<span class="sw" style="background:${esc(T(m.a).color)}"></span>${esc((m.ap || []).join(" & "))}`}</td><td class="num">${sc ? sc.join("–") : `<span class="pill ${st[m.id].k}">${st[m.id].k === "now" ? "Playing" : st[m.id].k === "wait" ? "Waiting" : "Later"}</span>`}</td><td>${sc ? `<button class="btn alt" type="button" data-edit="${m.id}" style="min-height:34px;padding:4px 12px">Fix</button> <button class="btn alt" type="button" data-clear="${m.id}" style="min-height:34px;padding:4px 12px">Clear</button>` : m.h != null ? `<button class="btn alt" type="button" data-edit="${m.id}" style="min-height:34px;padding:4px 12px">Enter</button>` : ""}</td></tr>`; }).join("")}</tbody></table></div><div id="editor">${editId ? (() => { const m = M.find((x) => x.id === editId); return m ? `<div class="cc" style="margin-top:12px"><h3>Court ${m.court} · ${m.final ? "Final" : "Round " + (m.r + 1)} · Line ${m.l + 1}</h3>${scoreForm(m)}<button class="btn alt" type="button" id="edClose" style="margin-top:8px">Close</button></div>` : ""; })() : ""}</div></div>`;
+        return `<tr><td class="num">${m.court}</td><td>${m.final ? "Final " + m.label : "Round " + (m.r + 1)}, L${m.l + 1}</td><td>${m.h == null ? "—" : `<span class="sw" style="background:${esc(T(m.h).color)}"></span>${esc((m.hp || []).join(" & "))}`}</td><td>${m.a == null ? "—" : `<span class="sw" style="background:${esc(T(m.a).color)}"></span>${esc((m.ap || []).join(" & "))}`}</td><td class="num">${sc ? sc.join("–") : pendingReports().includes(m.id) ? `<span class="pill now">Sent ${esc((REPORTS[m.id].h || REPORTS[m.id].a).v.join("–"))}</span>` : `<span class="pill ${st[m.id].k}">${st[m.id].k === "now" ? "Playing" : st[m.id].k === "wait" ? "Waiting" : "Later"}</span>`}</td><td>${sc ? `<button class="btn alt" type="button" data-edit="${m.id}" style="min-height:34px;padding:4px 12px">Fix</button> <button class="btn alt" type="button" data-clear="${m.id}" style="min-height:34px;padding:4px 12px">Clear</button>` : m.h != null ? `<button class="btn alt" type="button" data-edit="${m.id}" style="min-height:34px;padding:4px 12px">Enter</button>` : ""}</td></tr>`; }).join("")}</tbody></table></div><div id="editor">${editId ? (() => { const m = M.find((x) => x.id === editId); return m ? `<div class="cc" style="margin-top:12px"><h3>Court ${m.court} · ${m.final ? "Final" : "Round " + (m.r + 1)} · Line ${m.l + 1}</h3>${reportBox(m)}${scoreForm(m)}<button class="btn alt" type="button" id="edClose" style="margin-top:8px">Close</button></div>` : ""; })() : ""}</div></div>`;
   }
   const cards = [6,4,2,5,3,1].filter((c) => byCourt[c]).map((c) => {
     const cur = byCourt[c].find((m) => !SCORES.s[m.id]);
     if (!cur) return `<div class="cc"><h3>Court ${c}</h3><p class="muted">All matches played.</p></div>`;
     const s = st[cur.id];
     const missing = eventDay() ? [].concat(cur.hp || [], cur.ap || []).filter((n) => !CHECKINS[n]) : [];
-    return `<div class="cc ${s.k}"><h3>Court ${c} · ${cur.final ? "Final, " + cur.label : "Round " + (cur.r + 1)} · Line ${cur.l + 1}</h3>${missing.length ? `<div class="msg err" style="margin-top:0">Not checked in: ${esc(missing.join(", "))}</div>` : ""}${scoreForm(cur)}<div class="muted" style="font-size:13px">${s.k === "now" ? "Playing now." : esc(s.why) + ". You can still enter the score if they played."}</div></div>`;
+    return `<div class="cc ${s.k}"><h3>Court ${c} · ${cur.final ? "Final, " + cur.label : "Round " + (cur.r + 1)} · Line ${cur.l + 1}</h3>${missing.length ? `<div class="msg err" style="margin-top:0">Not checked in: ${esc(missing.join(", "))}</div>` : ""}${reportBox(cur)}${scoreForm(cur)}<div class="muted" style="font-size:13px">${s.k === "now" ? "Playing now." : esc(s.why) + ". You can still enter the score if they played."}</div></div>`;
   }).join("");
   const decs = [0, 1].map((t) => { const F = finalResult(M, t); if (!F || !F.level) return ""; return `<div class="cc wait" style="margin-bottom:12px"><h3>${t ? "Third place" : "Cup final"} is level, ${F.gh}–${F.ga}</h3><p class="muted" style="margin:4px 0 8px">All three courts play one golden point at once; best of three wins. Who won?</p>${[F.h, F.a].map((s2) => `<button type="button" class="btn ${F.w === s2 ? "" : "alt"}" data-dec="${t}|${s2}" style="margin-right:8px">${esc(T(s2).name)}</button>`).join("")}</div>`; }).join("");
-  return head + `<h1>Scoring</h1>` + tabs + decs + `<p class="muted">Winners bring you the score. Write it on that court's sheet first, then enter it here. Tap the home score, then the away score, then Save. A 5–5 tiebreak is saved as 6–5.</p><div class="ctl-courts">${cards}</div></div>`;
+  return head + `<h1>Scoring</h1>` + tabs + decs + `<p class="muted">Players send their score from their phone; it shows in green on that court. Check it, write it on the court sheet, then tap <b>Confirm</b>. Nothing goes on the board until you do. If nobody sent one, the winners tell you: tap the home score, then the away score, then Save. A 5–5 tiebreak is saved as 6–5.</p><div class="ctl-courts">${cards}</div></div>`;
 }
+/* Reports waiting for the scorekeeper: any unscored match a player has sent a score for. */
+function pendingReports(){ return Object.keys(REPORTS).filter((id) => !SCORES.s[id] && REPORTS[id] && (REPORTS[id].h || REPORTS[id].a)); }
+function reportBox(m){
+  const r = REPORTS[m.id]; if (!r || SCORES.s[m.id] || m.h == null || (!r.h && !r.a)) return "";
+  const rows = [["h", m.h], ["a", m.a]].filter(([k]) => r[k]).map(([k, sq]) => `<div style="margin:2px 0"><span class="sw" style="background:${esc(T(sq).color)}"></span><b>${esc(r[k].by)}</b> sent <b class="num">${r[k].v.join("–")}</b> <span class="muted">${clock12(r[k].at)}</span></div>`).join("");
+  const vals = [...new Set([r.h, r.a].filter(Boolean).map((x) => x.v.join("–")))];
+  const note = r.h && r.a ? (vals.length === 1 ? "Both pairs sent the same score." : "The pairs sent different scores. Ask them, then confirm the right one or enter it below.") : "One pair has sent a score.";
+  return `<div class="msg ${vals.length > 1 ? "err" : "ok"}" style="margin:0 0 10px;display:block"><div style="font-weight:600;margin-bottom:4px">Sent from a phone (home–away)</div>${rows}<div class="muted" style="font-size:13px;margin:4px 0 8px">${note}</div>
+    ${vals.map((v) => `<button class="btn" type="button" data-confirm="${m.id}" data-v="${v}" style="margin-right:8px">Confirm ${v}</button>`).join("")}<button class="btn alt" type="button" data-dismiss="${m.id}">Dismiss</button></div>`;
+}
+async function clearReport(id){ delete REPORTS[id]; saveCache(); render(); try { await rpc("dw_report_clear", { p_id: id, p_pin: lsGet(LS.pin, "") }); } catch(e){} }
 function scoreForm(m){
   if (m.h == null) return `<p class="muted">Squads are set when round 9 is finished.</p>`;
   const p = pickState[m.id] || [null, null], max = (SETUP.format && SETUP.format.gamesTo) || 6;
@@ -536,11 +582,13 @@ function bindControl(){
   document.querySelectorAll("[data-clear]").forEach((b) => b.onclick = () => { b.textContent = "Tap again to clear"; if (b.dataset.armed) setScore(b.dataset.clear, null); b.dataset.armed = "1"; });
   document.querySelectorAll("[data-edit]").forEach((b) => b.onclick = () => { editId = b.dataset.edit; render(); const ed = $("#editor"); if (ed) ed.scrollIntoView({ block:"center" }); });
   const ec = $("#edClose"); if (ec) ec.onclick = () => { editId = null; render(); };
+  document.querySelectorAll("[data-confirm]").forEach((b) => b.onclick = () => { const id = b.dataset.confirm, v = b.dataset.v.split("–").map(Number); delete pickState[id]; if (editId === id) editId = null; setScore(id, v); clearReport(id); });
+  document.querySelectorAll("[data-dismiss]").forEach((b) => b.onclick = () => { if (!b.dataset.armed) { b.dataset.armed = "1"; b.textContent = "Tap again to dismiss"; return; } clearReport(b.dataset.dismiss); });
   document.querySelectorAll("[data-dec]").forEach((b) => b.onclick = () => { const [t, w] = b.dataset.dec.split("|").map(Number); setDecider(t, w); });
   document.querySelectorAll("[data-ci]").forEach((b) => b.onclick = async () => { const n = b.dataset.ci; b.disabled = true; const ok = await checkIn(n, !CHECKINS[n]); if (!ok) { $("#ciMsg").textContent = "Couldn't change that check-in."; $("#ciMsg").className = "msg err"; } render(); });
   const ca = $("#clearAll");
   if (ca) ca.onclick = async () => { if (!ca.dataset.armed) { ca.dataset.armed = "1"; ca.textContent = "Tap again to clear all " + Object.keys(SCORES.s).length + " scores"; return; }
-    try { await rpc("cup_write", { p_key:"dw_scores", p_doc:{ s:{}, at:{}, fin:{}, v:3, clearedAt: Date.now() }, p_pin: lsGet(LS.pin, "") }); lsSet(LS.queue, {}); SCORES = { s:{}, at:{}, fin:{} }; saveCache(); $("#clearMsg").textContent = "All scores cleared."; $("#clearMsg").className = "msg ok"; }
+    try { await rpc("cup_write", { p_key:"dw_scores", p_doc:{ s:{}, at:{}, fin:{}, v:3, clearedAt: Date.now() }, p_pin: lsGet(LS.pin, "") }); lsSet(LS.queue, {}); SCORES = { s:{}, at:{}, fin:{} }; REPORTS = {}; saveCache(); rpc("dw_report_clear", { p_id:"all", p_pin: lsGet(LS.pin, "") }).catch(() => {}); $("#clearMsg").textContent = "All scores cleared."; $("#clearMsg").className = "msg ok"; }
     catch(e){ $("#clearMsg").textContent = "Couldn't clear: check the PIN and the connection."; $("#clearMsg").className = "msg err"; } };
   const sg = $("#setupGo");
   if (sg) sg.onclick = async () => { const msg = $("#setupMsg"); let x;
@@ -559,7 +607,7 @@ function postersView(){
   const courts = [6,4,2,5,3,1].filter((c) => byCourt[c]).map((c) => { const q = byCourt[c].sort((a, b) => a.r - b.r);
     return `<section class="poster"><h1>Court ${c}</h1><div class="sub">${esc(SETUP.title || "The Diwali Cup")} · Line ${q[0].l + 1} · play these in order</div>
       <table><thead><tr><th>#</th><th>Round</th><th>Home</th><th>Away</th><th class="score">Score</th></tr></thead><tbody>${q.map((m, i) => `<tr><td class="o">${i + 1}</td><td>${m.final ? "Final<br>" + m.label : "Round " + (m.r + 1)}</td><td>${m.final ? `${m.label.split(" v ")[0]} place squad` : pair(m.h, m.hp)}</td><td>${m.final ? `${m.label.split(" v ")[1]} place squad` : pair(m.a, m.ap)}</td><td class="score"></td></tr>`).join("")}</tbody></table>
-      <p class="rule">Start your next match as soon as this court is free and all four players are here. If a player is still on another court, wait for them. One set to 6, golden point at deuce, tiebreak at 5–5. Winners bring the score to the table.</p></section>`; }).join("");
+      <p class="rule">Start your next match as soon as this court is free and all four players are here. If a player is still on another court, wait for them. One set to 6, golden point at deuce, tiebreak at 5–5. Send your score from your phone (scan the QR, tap your name), or give it to the score table.</p></section>`; }).join("");
   const door = `<section class="poster doorqr"><h1>Check in here</h1><div class="sub">Scan, then tap your name. That checks you in and opens your matches: court, partner, opponents and results, live all day.</div>${QR_SVG}<p style="font:700 18px var(--text);margin-top:12px">${esc(BASE.replace(/^https?:\/\//, ""))}#you</p></section>`;
   const squads = SETUP.teams.map((t, s) => `<section class="poster squad"><h1>${esc(t.name)}</h1><div class="sub">Captain ${esc(t.captain || "")} · who plays when</div>${[0,1,2].map((l) => `<h3 style="margin-top:14px;color:#111">Line ${l + 1}</h3><table><thead><tr><th>Round</th><th>Pair</th><th>Court</th></tr></thead><tbody>${M.filter((m) => m.l === l && (m.final ? true : (m.h === s || m.a === s))).map((m) => { const p = m.final ? SETUP.pairs[FINAL][s][l] : (m.h === s ? m.hp : m.ap); const tie = m.final ? null : m; if (m.final && m.t === 1) return ""; return `<tr><td>${m.final ? "Final" : "Round " + (m.r + 1)}</td><td>${esc(p.join(" & "))}</td><td>${m.final ? "Set by standings" : m.court}</td></tr>`; }).join("")}</tbody></table>`).join("")}</section>`).join("");
   return `<div class="wrap">${tools}${courts}${door}${squads}</div>`;
@@ -567,7 +615,7 @@ function postersView(){
 function bindPosters(){ const p = $("#print"); if (p) p.onclick = () => window.print(); }
 
 const QR_SVG = (window.QR_SVG || "");
-window.__dw = { buildMatches, setScore, finalResult, scores: () => SCORES };   // used by the test script only
+window.__dw = { buildMatches, setScore, finalResult, scores: () => SCORES, reports: () => REPORTS };   // used by the test script only
 route(); pull(); setInterval(pull, 5000);
 addEventListener("online", pull);
 })();
