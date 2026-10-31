@@ -142,6 +142,7 @@ input.pin{min-height:48px;border:1px solid var(--rule);border-radius:10px;backgr
   .wrap{padding:0;max-width:none}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+body.is-test::before{content:"TEST SCOREBOARD \00B7  practice data only, not the real Cup";display:block;background:#E86223;color:#fff;text-align:center;font-weight:700;padding:7px 12px;font-size:14px;letter-spacing:.03em}
 </style>
 </head>
 <body>
@@ -155,8 +156,10 @@ window.QR_SVG="<svg role=\"img\" aria-label=\"QR code for your matches\" xmlns=\
 const SB_URL = "https://vzgofxsgedmxvdagrono.supabase.co";
 const SB_KEY = "sb_publishable_xUDMR5r_5RzNRhcjtObyrA_Ww4gphoU";
 const HDR = { apikey: SB_KEY, Authorization: "Bearer " + SB_KEY };
+/* One source, two builds: the live board (dw_*) and a rehearsal copy (dwt_*) with its own data, PIN and phone storage. */
+const TEST = "live" === "test", P = TEST ? "dwt" : "dw";
 const BASE = location.origin + location.pathname;
-const LS = { pin: "dw.pin", me: "dw.me", queue: "dw.queue", ci: "dw.checkin", ciPending: "dw.checkinPending" };
+const LS = { pin: P + ".pin", me: P + ".me", queue: P + ".queue", ci: P + ".checkin", ciPending: P + ".checkinPending", cache: P + ".cache" };
 const $ = (s, el) => (el || document).querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } };
@@ -166,8 +169,8 @@ const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } ca
 let SETUP = null, SCORES = { s: {}, at: {}, fin: {} }, CHECKINS = {}, REPORTS = {}, online = true, lastSeen = 0;
 let editId = null, lastSig = "", deferred = false, repPick = {}, repMsg = {};
 /* Last good copy of everything, so a reload with no signal still shows squads, scores and check-ins. */
-(function loadCache(){ const c = lsGet("dw.cache", null); if (c) { SETUP = c.setup || null; SCORES = Object.assign({ s:{}, at:{}, fin:{} }, c.scores || {}); CHECKINS = c.checkins || {}; REPORTS = c.reports || {}; mergeQueue(); } })();
-function saveCache(){ lsSet("dw.cache", { setup: SETUP, scores: SCORES, checkins: CHECKINS, reports: REPORTS, savedAt: Date.now() }); }
+(function loadCache(){ const c = lsGet(LS.cache, null); if (c) { SETUP = c.setup || null; SCORES = Object.assign({ s:{}, at:{}, fin:{} }, c.scores || {}); CHECKINS = c.checkins || {}; REPORTS = c.reports || {}; mergeQueue(); } })();
+function saveCache(){ lsSet(LS.cache, { setup: SETUP, scores: SCORES, checkins: CHECKINS, reports: REPORTS, savedAt: Date.now() }); }
 const ord = (n) => n + (["th","st","nd","rd"][((n % 100) - 20) % 10] || ["th","st","nd","rd"][n % 100] || "th");
 let view = "home", meName = lsGet(LS.me, null), ctlTab = "courts", pickState = {};
 
@@ -251,21 +254,21 @@ const sideHTML = (s, pair, cls) => s == null ? `<div class="side ${cls || ""}"><
 /* ---------- data ---------- */
 async function pull(){
   try {
-    const r = await fetch(SB_URL + "/rest/v1/cup_state?select=key,doc,updated_at&key=in.(dw_setup,dw_scores,dw_checkins,dw_reports)", { headers: HDR, cache: "no-store" });
+    const r = await fetch(SB_URL + `/rest/v1/cup_state?select=key,doc,updated_at&key=in.(${P}_setup,${P}_scores,${P}_checkins,${P}_reports)`, { headers: HDR, cache: "no-store" });
     if (!r.ok) throw new Error(r.status);
     const rows = await r.json(); online = true; lastSeen = Date.now();
-    rows.forEach((row) => { if (row.key === "dw_setup") SETUP = row.doc; if (row.key === "dw_scores") mergeRemote(row.doc); if (row.key === "dw_checkins") CHECKINS = (row.doc && row.doc.in) || {}; if (row.key === "dw_reports") REPORTS = (row.doc && row.doc.r) || {}; });
+    rows.forEach((row) => { if (row.key === P + "_setup") SETUP = row.doc; if (row.key === P + "_scores") mergeRemote(row.doc); if (row.key === P + "_checkins") CHECKINS = (row.doc && row.doc.in) || {}; if (row.key === P + "_reports") REPORTS = (row.doc && row.doc.r) || {}; });
     saveCache();
   } catch(e){ online = false; }
   await flush(); await flushCheckin(); renderIfChanged();
 }
 /* ---------- check-in ---------- */
 function todayLA(){ try { return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()); } catch(e){ return new Date().toISOString().slice(0, 10); } }
-const eventDay = () => !!(SETUP && SETUP.date && todayLA() === SETUP.date);
+const eventDay = () => !!(SETUP && (TEST || (SETUP.date && todayLA() === SETUP.date)));
 const clock12 = (iso) => { const m = /T(\d\d):(\d\d)/.exec(iso || ""); if (!m) return ""; let h = +m[1]; const ap = h >= 12 ? "PM" : "AM"; h = h % 12 || 12; return `${h}:${m[2]} ${ap}`; };
 async function checkIn(name, present = true){
   try {
-    const r = await rpc("dw_checkin", { p_name: name, p_present: present });
+    const r = await rpc(P + "_checkin", { p_name: name, p_present: present });
     if (present) { CHECKINS[name] = (r && r.at) || "yes"; lsSet(LS.ci, { name, date: SETUP.date }); } else { delete CHECKINS[name]; lsSet(LS.ci, null); }
     lsSet(LS.ciPending, null); online = true; return true;
   } catch(e){
@@ -302,7 +305,7 @@ async function flush(){
   try {
     // Each match goes up on its own and the server applies it atomically, so two scoring devices never overwrite each other.
     for (const [id, e] of Object.entries(q)) {
-      await rpc("dw_score", { p_id: id, p_v: e.v || null, p_at: e.at, p_pin: pin });
+      await rpc(P + "_score", { p_id: id, p_v: e.v || null, p_at: e.at, p_pin: pin });
       const now = lsGet(LS.queue, {}); if (now[id] && now[id].at === e.at) { delete now[id]; lsSet(LS.queue, now); }
     }
     online = true; saveCache();
@@ -352,6 +355,7 @@ document.addEventListener("focusout", () => setTimeout(() => { if (deferred && !
 function render(){
   lastSig = sig();
   const app = $("#app");
+  document.body.classList.toggle("is-test", TEST);
   if (view === "tv") return app.innerHTML = tvView();
   if (view === "you") return app.innerHTML = youView(), bindYou();
   if (view === "control") return app.innerHTML = controlView(), bindControl();
@@ -421,7 +425,7 @@ async function sendReport(id){
   const v = h ? [p[0], p[1]] : [p[1], p[0]];
   repMsg[id] = { t: "Sending…" }; render();
   try {
-    const r = await rpc("dw_report", { p_id: id, p_name: meName, p_v: v, p_side: h ? "h" : "a" });
+    const r = await rpc(P + "_report", { p_id: id, p_name: meName, p_v: v, p_side: h ? "h" : "a" });
     REPORTS[id] = Object.assign({}, REPORTS[id] || {}, { [r.side]: { v: r.v, by: meName, at: r.at } });
     delete repPick[id]; delete repMsg[id]; online = true; saveCache();
   } catch(e){
@@ -528,7 +532,7 @@ function reportBox(m){
   return `<div class="msg ${vals.length > 1 ? "err" : "ok"}" style="margin:0 0 10px;display:block"><div style="font-weight:600;margin-bottom:4px">Sent from a phone (home–away)</div>${rows}<div class="muted" style="font-size:13px;margin:4px 0 8px">${note}</div>
     ${vals.map((v) => `<button class="btn" type="button" data-confirm="${m.id}" data-v="${v}" style="margin-right:8px">Confirm ${v}</button>`).join("")}<button class="btn alt" type="button" data-dismiss="${m.id}">Dismiss</button></div>`;
 }
-async function clearReport(id){ delete REPORTS[id]; saveCache(); render(); try { await rpc("dw_report_clear", { p_id: id, p_pin: lsGet(LS.pin, "") }); } catch(e){} }
+async function clearReport(id){ delete REPORTS[id]; saveCache(); render(); try { await rpc(P + "_report_clear", { p_id: id, p_pin: lsGet(LS.pin, "") }); } catch(e){} }
 function scoreForm(m){
   if (m.h == null) return `<p class="muted">Squads are set when round 9 is finished.</p>`;
   const p = pickState[m.id] || [null, null], max = (SETUP.format && SETUP.format.gamesTo) || 6;
@@ -547,7 +551,7 @@ function setupPanel(){
   return `<div class="card"><h2>Load squads and pairings</h2><p class="muted">In the Diwali Cup Kit, open Pairings and press "Copy scoreboard setup", then paste it here. Loading new squads replaces the old ones; scores already entered stay.</p>
     <textarea id="setupIn" aria-label="Scoreboard setup">${SETUP ? esc(JSON.stringify(SETUP)) : ""}</textarea>
     <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="setupGo">Check and load</button></div><div class="msg" id="setupMsg" role="alert"></div></div>
-    <div class="card" style="margin-top:16px"><h2>After a practice run</h2><p class="muted">Clears every score entered so far. Use it only after practising, before the real day starts.</p><button class="btn alt" type="button" id="clearAll">Clear all scores</button><div class="msg" id="clearMsg" role="alert"></div></div>`;
+    ${TEST ? `<div class="card" style="margin-top:16px"><h2>Start a fresh rehearsal</h2><p class="muted">Clears test scores, check-ins and phone reports. Squads stay loaded.</p><button class="btn alt" type="button" id="resetTest">Reset test data</button><div class="msg" id="resetMsg" role="alert"></div></div>` : ""}<div class="card" style="margin-top:16px"><h2>After a practice run</h2><p class="muted">Clears every score entered so far. Use it only after practising, before the real day starts.</p><button class="btn alt" type="button" id="clearAll">Clear all scores</button><div class="msg" id="clearMsg" role="alert"></div></div>`;
 }
 function checkSetup(x){
   const e = [];
@@ -571,7 +575,7 @@ function checkSetup(x){
 function bindControl(){
   const pg = $("#pinGo");
   if (pg) { const go = async () => { const v = $("#pin").value.trim(); $("#pinMsg").textContent = "Checking…"; $("#pinMsg").className = "msg";
-    try { const ok = await rpc("dw_check_pin", { p_pin: v }); if (ok === true) { lsSet(LS.pin, v); render(); } else { $("#pinMsg").textContent = "That PIN isn't right. Check the 6 digits Cleon sent."; $("#pinMsg").className = "msg err"; } }
+    try { const ok = await rpc(P + "_check_pin", { p_pin: v }); if (ok === true) { lsSet(LS.pin, v); render(); } else { $("#pinMsg").textContent = "That PIN isn't right. Check the 6 digits Cleon sent."; $("#pinMsg").className = "msg err"; } }
     catch(e){ if (/locked/.test(e.message)) { $("#pinMsg").textContent = "Too many wrong PINs in the last hour, so scoring is locked for now. Text Cleon."; $("#pinMsg").className = "msg err"; return; } $("#pinMsg").textContent = "Can't check the PIN: this laptop isn't online. Join the club wifi or a hotspot and try again."; $("#pinMsg").className = "msg err"; } };
     pg.onclick = go; $("#pin").onkeydown = (e) => { if (e.key === "Enter") go(); }; return; }
   document.querySelectorAll(".tabs [data-t]").forEach((b) => b.onclick = () => { ctlTab = b.dataset.t; render(); });
@@ -588,14 +592,18 @@ function bindControl(){
   document.querySelectorAll("[data-ci]").forEach((b) => b.onclick = async () => { const n = b.dataset.ci; b.disabled = true; const ok = await checkIn(n, !CHECKINS[n]); if (!ok) { $("#ciMsg").textContent = "Couldn't change that check-in."; $("#ciMsg").className = "msg err"; } render(); });
   const ca = $("#clearAll");
   if (ca) ca.onclick = async () => { if (!ca.dataset.armed) { ca.dataset.armed = "1"; ca.textContent = "Tap again to clear all " + Object.keys(SCORES.s).length + " scores"; return; }
-    try { await rpc("cup_write", { p_key:"dw_scores", p_doc:{ s:{}, at:{}, fin:{}, v:3, clearedAt: Date.now() }, p_pin: lsGet(LS.pin, "") }); lsSet(LS.queue, {}); SCORES = { s:{}, at:{}, fin:{} }; REPORTS = {}; saveCache(); rpc("dw_report_clear", { p_id:"all", p_pin: lsGet(LS.pin, "") }).catch(() => {}); $("#clearMsg").textContent = "All scores cleared."; $("#clearMsg").className = "msg ok"; }
+    try { await rpc("cup_write", { p_key: P + "_scores", p_doc:{ s:{}, at:{}, fin:{}, v:3, clearedAt: Date.now() }, p_pin: lsGet(LS.pin, "") }); lsSet(LS.queue, {}); SCORES = { s:{}, at:{}, fin:{} }; REPORTS = {}; saveCache(); rpc(P + "_report_clear", { p_id:"all", p_pin: lsGet(LS.pin, "") }).catch(() => {}); $("#clearMsg").textContent = "All scores cleared."; $("#clearMsg").className = "msg ok"; }
     catch(e){ $("#clearMsg").textContent = "Couldn't clear: check the PIN and the connection."; $("#clearMsg").className = "msg err"; } };
+  const rt = $("#resetTest");
+  if (rt) rt.onclick = async () => { if (!rt.dataset.armed) { rt.dataset.armed = "1"; rt.textContent = "Tap again to reset"; return; }
+    try { await rpc("dwt_reset", { p_pin: lsGet(LS.pin, "") }); lsSet(LS.queue, {}); lsSet(LS.ci, null); SCORES = { s:{}, at:{}, fin:{} }; CHECKINS = {}; REPORTS = {}; saveCache(); $("#resetMsg").textContent = "Reset. Ready for a new rehearsal."; $("#resetMsg").className = "msg ok"; rt.textContent = "Reset test data"; delete rt.dataset.armed; }
+    catch(e){ $("#resetMsg").textContent = "Couldn't reset: check the PIN and the connection."; $("#resetMsg").className = "msg err"; } };
   const sg = $("#setupGo");
   if (sg) sg.onclick = async () => { const msg = $("#setupMsg"); let x;
     try { x = JSON.parse($("#setupIn").value); } catch(e){ msg.textContent = "That isn't a setup code. Copy it again from the kit."; msg.className = "msg err"; return; }
     const errs = checkSetup(x); if (errs.length) { msg.innerHTML = errs.slice(0, 8).map(esc).join("<br>"); msg.className = "msg err"; return; }
     msg.textContent = "Loading…"; msg.className = "msg";
-    try { await rpc("cup_write", { p_key:"dw_setup", p_doc:x, p_pin: lsGet(LS.pin, "") }); SETUP = x; msg.textContent = "Loaded. Courts, phones and the TV now show these squads."; msg.className = "msg ok"; setTimeout(() => { ctlTab = "courts"; render(); }, 1200); }
+    try { await rpc("cup_write", { p_key: P + "_setup", p_doc:x, p_pin: lsGet(LS.pin, "") }); SETUP = x; msg.textContent = "Loaded. Courts, phones and the TV now show these squads."; msg.className = "msg ok"; setTimeout(() => { ctlTab = "courts"; render(); }, 1200); }
     catch(e){ msg.textContent = /pin/i.test(e.message) ? "The PIN on this laptop isn't right. Lock and unlock with the correct PIN." : "Couldn't load: this laptop is offline. Try again on wifi."; msg.className = "msg err"; } };
 }
 
