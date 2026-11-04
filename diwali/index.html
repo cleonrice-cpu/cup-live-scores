@@ -404,9 +404,12 @@ async function flush(){
   flushing = true;
   try {
     // Each match goes up on its own and the server applies it atomically, so two scoring devices never overwrite each other.
-    for (const [id, e] of Object.entries(q)) {
-      await rpc(P + "_score", { p_id: id, p_v: e.v || null, p_at: e.at, p_pin: pin });
-      const now = lsGet(LS.queue, {}); if (now[id] && now[id].at === e.at) { delete now[id]; lsSet(LS.queue, now); }
+    // Keep going until the queue is empty, so a score entered while another is sending goes straight up too.
+    for (let left = q, guard = 0; Object.keys(left).length && guard < 50; left = lsGet(LS.queue, {}), guard++) {
+      for (const [id, e] of Object.entries(left)) {
+        await rpc(P + "_score", { p_id: id, p_v: e.v || null, p_at: e.at, p_pin: pin });
+        const now = lsGet(LS.queue, {}); if (now[id] && now[id].at === e.at) { delete now[id]; lsSet(LS.queue, now); }
+      }
     }
     online = true; saveCache();
   } catch(e){
