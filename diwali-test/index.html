@@ -216,7 +216,7 @@ let view = "home", meName = lsGet(LS.me, null), ctlTab = "courts", pickState = {
    Match id r|t|l|w: round 0-4, tie 0 (A, courts 6/4/2 = lines 1/2/3) or 1 (B, courts 5/3/1), line 0-2, wave 0-1.
    A court keeps the same line, tie and squads for both waves of a round. Rounds 1-3 are fixed (setup.rounds).
    Round 4 (seeding): Tie A 1st v 4th, Tie B 2nd v 3rd, from the standings after Round 3.
-   Round 5 (finals): Tie A 1st v 2nd (the Cup), Tie B 3rd v 4th (third place), from the standings after Round 4.
+   Round 5 (finals): Tie A the two Round 4 winners (the Cup), Tie B the two Round 4 losers (third place).
    Rounds 4 and 5 are sealed (no matchups or names on the TV, phones or posters) until the desk releases them:
    setup.released = {"3":true,"4":true}; setup.lineupIn = {"3":[4 booleans],"4":[...]} are the desk's "lineup in" ticks.
 
@@ -254,8 +254,10 @@ function buildMatches(){
   const S3 = M.every((m) => SCORES.s[m.id]) ? standings(M, R4) : null;
   for (let t = 0; t < 2; t++) { const k = lockOf(R4, t), mu = k ? [k.h, k.a] : S3 ? (t ? [S3[1].s, S3[2].s] : [S3[0].s, S3[3].s]) : [null, null]; add(R4, t, mu[0], mu[1]); }
   if (skipped()) return M;
-  const S4 = roundMs(M, R4).every((m) => m.h != null && SCORES.s[m.id]) && M.slice(0, 36).every((m) => SCORES.s[m.id]) ? standings(M, R5) : null;
-  for (let t = 0; t < 2; t++) { const k = lockOf(R5, t), mu = k ? [k.h, k.a] : S4 ? (t ? [S4[2].s, S4[3].s] : [S4[0].s, S4[1].s]) : [null, null]; add(R5, t, mu[0], mu[1]); }
+  // Round 5 is a bracket off Round 4: the two tie winners play for the Cup, the two losers for third.
+  const A4 = tieResult(M, R4, 0), B4 = tieResult(M, R4, 1), ok4 = A4 && B4 && A4.w != null && B4.w != null && M.slice(0, 36).every((m) => SCORES.s[m.id]);
+  const lose = (x) => x.w === x.h ? x.a : x.h;
+  for (let t = 0; t < 2; t++) { const k = lockOf(R5, t), mu = k ? [k.h, k.a] : ok4 ? (t ? [lose(A4), lose(B4)] : [A4.w, B4.w]) : [null, null]; add(R5, t, mu[0], mu[1]); }
   return M;
 }
 /* Standings over rounds before `upto` (default: Rounds 1-4; Round 5 is decided by its own tie totals).
@@ -301,12 +303,15 @@ function tieTotals(M, r, t){
   const sc = ms.filter((m) => SCORES.s[m.id]);
   return { h: ms[0].h, a: ms[0].a, gh: sc.reduce((x, m) => x + SCORES.s[m.id][0], 0), ga: sc.reduce((x, m) => x + SCORES.s[m.id][1], 0), n: sc.length, of: ms.length };
 }
-/* A Round 5 tie: total games across its six sets; level totals are settled by the golden-point decider winner (fin[t].w). */
-function finalResult(M, t){
-  const T5 = tieTotals(M, R5, t); if (!T5 || T5.n < T5.of) return null;
-  const w = T5.gh > T5.ga ? T5.h : T5.ga > T5.gh ? T5.a : (SCORES.fin[t] && SCORES.fin[t].w != null && [T5.h, T5.a].includes(SCORES.fin[t].w) ? SCORES.fin[t].w : null);
-  return Object.assign(T5, { w, level: T5.gh === T5.ga });
+/* A Round 4 or Round 5 tie: total games across its six sets; level totals are settled by the golden-point decider
+   winner (fin[t].w4 for Round 4, fin[t].w for Round 5). */
+function tieResult(M, r, t){
+  const X = tieTotals(M, r, t); if (!X || X.n < X.of) return null;
+  const f = SCORES.fin[t], d = f && f[r === R4 ? "w4" : "w"];
+  const w = X.gh > X.ga ? X.h : X.ga > X.gh ? X.a : (d != null && [X.h, X.a].includes(d) ? d : null);
+  return Object.assign(X, { w, level: X.gh === X.ga });
 }
+function finalResult(M, t){ return tieResult(M, R5, t); }
 /* Placings [Cup winner, 2nd, 3rd, 4th]: from the Round 5 ties, or from the standings after Round 4 if the finals were skipped. */
 function placings(M){
   if (skipped()) return roundDone(M, R4) ? standings(M, R5).map((x) => x.s) : [null, null, null, null];
@@ -646,10 +651,13 @@ function controlView(){
   [R4, R5].forEach((r) => { if (r === R5 && skipped()) return; const a = M.find((m) => m.r === r && m.t === 0), b = M.find((m) => m.r === r && m.t === 1);
     if (released(r) || a.h == null) return;
     const tie = (m, lab) => `<div style="margin:2px 0"><b>${lab}</b> (courts ${M.filter((x) => x.r === r && x.t === m.t && x.w === 0).map((x) => x.court).join(", ")}): <span class="sw" style="background:${esc(T(m.h).color)}"></span>${esc(T(m.h).name)} v <span class="sw" style="background:${esc(T(m.a).color)}"></span>${esc(T(m.a).name)}</div>`;
-    top += `<div class="cc wait" style="margin-bottom:12px"><h3>Round ${r + 1} · ${esc(STAGE[r])}: matchups are set</h3>${tie(a, r === R4 ? "Tie A, 1st v 4th" : "Tie A, 1st v 2nd for the Cup")}${tie(b, r === R4 ? "Tie B, 2nd v 3rd" : "Tie B, 3rd v 4th")}<p class="muted" style="margin:6px 0 8px">Captains collect the matchup here and hand in their lineups. Enter changes, tick each lineup in, then release the round.</p><button type="button" class="btn sm" data-go="lineups" data-r="${r}">Open Lineups for Round ${r + 1}</button></div>`; });
+    top += `<div class="cc wait" style="margin-bottom:12px"><h3>Round ${r + 1} · ${esc(STAGE[r])}: matchups are set</h3>${tie(a, r === R4 ? "Tie A, 1st v 4th" : "Cup final, the Round 4 winners")}${tie(b, r === R4 ? "Tie B, 2nd v 3rd" : "Third place, the Round 4 losers")}<p class="muted" style="margin:6px 0 8px">Captains collect the matchup here and hand in their lineups. Enter changes, tick each lineup in, then release the round.</p><button type="button" class="btn sm" data-go="lineups" data-r="${r}">Open Lineups for Round ${r + 1}</button></div>`; });
+  // Round 4: a level tie needs a decider before the Round 5 bracket can be set.
+  [0, 1].forEach((t) => { const F = tieResult(M, R4, t); if (!F || !F.level) return; const nm = t ? "Round 4, 2nd v 3rd" : "Round 4, 1st v 4th";
+    top += `<div class="cc wait" style="margin-bottom:12px"><h3>${nm} is level, ${F.gh}–${F.ga}</h3><p class="muted" style="margin:4px 0 8px">The winner goes to the Cup final. All three courts play one golden point at once; best of three wins. Who won?</p>${[F.h, F.a].map((s2) => `<button type="button" class="btn ${F.w === s2 ? "" : "alt"}" data-dec="${R4}|${t}|${s2}" style="margin-right:8px">${esc(T(s2).name)}</button>`).join("")}</div>`; });
   // Finals: running totals and the decider when a tie ends level.
   if (!skipped()) [0, 1].forEach((t) => { const x = tieTotals(M, R5, t); if (!x || !x.n) return; const F = finalResult(M, t), nm = t ? "Third place" : "Cup final";
-    if (F && F.level) top += `<div class="cc wait" style="margin-bottom:12px"><h3>${nm} is level, ${F.gh}–${F.ga}</h3><p class="muted" style="margin:4px 0 8px">All three courts play one golden point at once; best of three wins. Who won?</p>${[F.h, F.a].map((s2) => `<button type="button" class="btn ${F.w === s2 ? "" : "alt"}" data-dec="${t}|${s2}" style="margin-right:8px">${esc(T(s2).name)}</button>`).join("")}</div>`;
+    if (F && F.level) top += `<div class="cc wait" style="margin-bottom:12px"><h3>${nm} is level, ${F.gh}–${F.ga}</h3><p class="muted" style="margin:4px 0 8px">All three courts play one golden point at once; best of three wins. Who won?</p>${[F.h, F.a].map((s2) => `<button type="button" class="btn ${F.w === s2 ? "" : "alt"}" data-dec="${R5}|${t}|${s2}" style="margin-right:8px">${esc(T(s2).name)}</button>`).join("")}</div>`;
     else top += `<div class="cc ${F ? "" : "now"}" style="margin-bottom:12px"><h3>${nm}: <span class="sw" style="background:${esc(T(x.h).color)}"></span>${esc(T(x.h).name)} <span class="num">${x.gh}–${x.ga}</span> <span class="sw" style="background:${esc(T(x.a).color)}"></span>${esc(T(x.a).name)}</h3><p class="muted" style="margin:4px 0 0">${F ? `${esc(T(F.w).name)} ${t ? "take third place" : "win the Cup"}.` : `${x.n} of ${x.of} sets in. Total games across the six sets decide it.`}</p></div>`; });
   if (skipped()) top += `<div class="cc wait" style="margin-bottom:12px"><h3>Finals skipped</h3><p style="margin:4px 0">From the standings after Round 4: Champions <b>${esc(T(S4[0].s).name)}</b> · 2nd ${esc(T(S4[1].s).name)} · Third <b>${esc(T(S4[2].s).name)}</b> · 4th ${esc(T(S4[3].s).name)}.</p><button type="button" class="lnk" id="unskip">Undo: play the finals</button></div>`;
   else if (roundDone(M, R4) && !anyR5) top += `<div class="cc" style="margin-bottom:12px;display:flex;gap:14px;align-items:center;flex-wrap:wrap"><span>Out of time for the finals? Ending now crowns the standings after Round 4: <b>${esc(T(S4[0].s).name)}</b> win the Cup, <b>${esc(T(S4[2].s).name)}</b> take third.</span><button type="button" class="btn alt sm" id="skipFin">End without finals</button></div>`;
@@ -779,7 +787,7 @@ function bindControl(){
   all("[data-ffo]", (b) => { ffOpen = b.dataset.ffo; render(); });
   all("[data-ffx]", () => { ffOpen = null; render(); });
   all("[data-ff]", (b) => { const id = b.dataset.ff, g = gamesTo(Number(id.split("|")[0])); if (!arm(b, `Tap again: ${g}–0 to ${b.dataset.who}`)) return; ffOpen = null; done(id); setScore(id, b.dataset.win === "h" ? [g, 0] : [0, g]); });
-  all("[data-dec]", (b) => { const [t, w] = b.dataset.dec.split("|").map(Number); if (arm(b, `Tap again: ${T(w).name} won the decider`)) setFin(t, { w }); });
+  all("[data-dec]", (b) => { const [r, t, w] = b.dataset.dec.split("|").map(Number); if (arm(b, `Tap again: ${T(w).name} won the decider`)) setFin(t, r === R4 ? { w4: w } : { w }); });
   all("#skipFin", (b) => { if (arm(b, "Tap again to end without finals")) setFin(0, { skip: true }); });
   all("#unskip", () => setFin(0, { skip: false }));
   // Lineups
