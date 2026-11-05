@@ -218,30 +218,41 @@ table.all tr.grp th{background:var(--sunk);color:var(--ink);font:800 15px var(--
 .chk{display:flex;align-items:center;gap:6px;font-weight:700;font-size:14px;cursor:pointer;min-height:36px}
 .chk input{width:20px;height:20px;accent-color:var(--ok)}
 .seal{font:800 clamp(14px,1.5vw,28px)/1.15 var(--disp);color:var(--mari);margin:auto 0}
-.poster tr.desk td{color:#555}
 textarea{width:100%;min-height:160px;border:1px solid var(--rule);border-radius:10px;background:var(--sunk);padding:10px;font:13px/1.4 ui-monospace,Menlo,monospace}
 input.pin{min-height:48px;border:1px solid var(--rule);border-radius:10px;background:var(--sunk);padding:8px 14px;font-size:20px;width:140px;letter-spacing:.2em}
 
-/* ---------- posters (print) ---------- */
-.poster{background:#fff;color:#111;border-radius:10px;padding:28px;margin-bottom:20px}
-.poster h1{color:#111;font-size:56px;margin:0}
-.poster .sub{font:700 18px var(--text);color:#444;margin:6px 0 16px}
-.poster table{width:100%;border-collapse:collapse;font-size:16px}
-.poster th,.poster td{border-bottom:1.5px solid #ccc;padding:9px 8px;text-align:left;vertical-align:top}
-.poster th{font:800 15px var(--disp);color:#444}
-.poster td.o{font:800 26px var(--disp);width:56px}
-.poster .score{width:110px;border-left:1.5px solid #ccc}
-.poster .rule{font-size:13px;color:#444;margin-top:12px}
-.poster.squad table{font-size:13px;table-layout:fixed} .poster.squad th:first-child{width:17%} .poster.squad td,.poster.squad th{padding:4px 6px} .poster.squad h3{margin:8px 0 2px!important}
-.doorqr{text-align:center}
-.sheetqr{float:right;display:flex;align-items:center;gap:10px;max-width:250px;font:700 14px/1.25 var(--text);color:#111}
-.sheetqr svg{width:1in;height:1in;flex:none}
-.doorqr svg{width:420px;max-width:80%;height:auto}
+/* ---------- court sheets (print) ---------- */
+.cstools{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.cs{background:#fff;color:#14112B;border-radius:10px;padding:.45in .5in;margin:0 auto 24px;max-width:8.5in;font-family:var(--text);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.csh{display:flex;gap:22px;align-items:stretch;margin-bottom:22px}
+.csc{background:#14112B;color:#fff;border-radius:14px;min-width:1.55in;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 18px}
+.csc small{font:800 13px var(--text);letter-spacing:.2em;text-transform:uppercase;color:#FFB627}
+.csc b{font:800 104px/0.9 var(--disp)}
+.csm{display:flex;flex-direction:column;justify-content:center;gap:4px;font:600 15px var(--text);color:#3A3558}
+.csline{font:800 44px/1 var(--disp);color:#14112B}
+.muted2{color:#6B6590;font-size:13px}
+.cst{border-top:2.5px solid #14112B}
+.csr{display:grid;grid-template-columns:.42in .95in minmax(0,1fr) .3in minmax(0,1fr) 1.15in;align-items:center;gap:0 10px;min-height:.76in;border-bottom:1px solid #D9D4E8;padding:6px 0}
+.csr.hd{min-height:0;padding:6px 0;font:800 11px var(--text);letter-spacing:.12em;text-transform:uppercase;color:#6B6590;border-bottom:1.5px solid #14112B}
+.csn{font:800 24px var(--disp);color:#14112B;text-align:center}
+.csl{display:flex;flex-direction:column;line-height:1.15}.csl b{font:800 17px var(--disp)}.csl span{font-size:12.5px;color:#6B6590;font-weight:600}
+.csd{display:flex;gap:9px;align-items:center;min-width:0}
+.csd i{width:6px;align-self:stretch;border-radius:3px;flex:none;min-height:34px}
+.csd b{display:block;font:800 13px var(--disp);letter-spacing:.02em;color:#3A3558}
+.csd span{display:block;font:600 15px/1.25 var(--text);color:#14112B}
+.csw{border-bottom:1.5px dashed #B9B2D3;height:.36in;align-self:end;margin-bottom:.1in}
+.csd.note b{color:#14112B}.csd.note span{color:#6B6590;font-size:13px}
+.csv{font:800 13px var(--text);color:#8E88AE;text-align:center}
+.csx{display:flex;align-items:center;gap:6px}
+.csx span{width:.42in;height:.42in;border:1.5px solid #14112B;border-radius:8px}
+.csx em{font-style:normal;font-weight:800;color:#8E88AE}
+.csr.desk{background:#F6F3FB}
 @media print{
-  @page{size:letter portrait;margin:12mm}
+  @page{size:letter portrait;margin:.4in}
   html,body{background:#fff!important;color:#111}
   .noprint{display:none!important}
-  .poster{page-break-after:always;border-radius:0;padding:0;margin:0}
+  .cs{page-break-after:always;break-after:page;border-radius:0;margin:0;max-width:none;width:auto;padding:0;overflow:hidden}
+  .cs:last-child{page-break-after:auto;break-after:auto}
   .wrap{padding:0;max-width:none}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -286,7 +297,7 @@ let view = "home", meName = lsGet(LS.me, null), ctlTab = "courts", pickState = {
 
 /* ---------- model ----------
    Format v2 (FORMAT_V2.md): 5 rounds x 2 waves on 6 courts = 60 sets; every player plays one set per round, 5 in all.
-   Match id r|t|l|w: round 0-4, tie 0 (A, courts 6/4/2 = lines 1/2/3) or 1 (B, courts 5/3/1), line 0-2, wave 0-1.
+   Match id r|t|l|w: round 0-4, tie 0 (A, courts 1/3/5 = lines 1/2/3) or 1 (B, courts 2/4/6), line 0-2, wave 0-1. Line 1 plays on courts 1-2, Line 2 on 3-4, Line 3 on 5-6.
    A court keeps the same line, tie and squads for both waves of a round. Rounds 1-3 are fixed (setup.rounds).
    Round 4 (seeding): Tie A 1st v 4th, Tie B 2nd v 3rd, from the standings after Round 3.
    Round 5 (finals): Tie A the two Round 4 winners (the Cup), Tie B the two Round 4 losers (third place).
@@ -305,7 +316,8 @@ const NR = 5, R4 = 3, R5 = 4;
 /* Every round runs in two waves on the six courts (12 sets). */
 const WAVES = () => 2, perRound = (r) => 6 * WAVES(r);
 const STAGE = ["Round robin", "Round robin", "Round robin", "Seeding round", "Finals"];
-const CO = [6, 4, 2, 5, 3, 1], cOrd = (m) => CO.indexOf(m.court);
+// Display order: columns are lines (1-2, 3-4, 5-6), Tie A on top, Tie B below.
+const CO = [1, 3, 5, 2, 4, 6], cOrd = (m) => CO.indexOf(m.court);
 const played = (id) => !!SCORES.s[id];
 const skipped = () => !!(SCORES.fin && SCORES.fin[0] && SCORES.fin[0].skip);
 const present = (n) => !!(CHECKINS[n] || RESERVES[n]);
@@ -322,7 +334,7 @@ const rlab = (m) => `Round ${m.r + 1}${tieName(m) ? ", " + tieName(m) : ""}${WAV
 const scoreHint = () => "5 all: four-serve shootout, record 6–5";
 function buildMatches(){
   if (!SETUP) return [];
-  const M = [], C = SETUP.courts || { A:[6,4,2], B:[5,3,1] };
+  const M = [], C = SETUP.courts || { A:[1,3,5], B:[2,4,6] };
   const pr = (r, x, l, w) => SETUP.pairs[r][x][l][w];
   const add = (r, t, h, a) => { for (let l = 0; l < 3; l++) for (let w = 0; w < WAVES(r); w++) M.push({ id:`${r}|${t}|${l}|${w}`, r, t, l, w, court:C[t ? "B" : "A"][l], h, a,
     hp: h == null ? null : pr(r, h, l, w), ap: a == null ? null : pr(r, a, l, w), final: r === R5 }); };
@@ -602,7 +614,7 @@ function homeView(){
     <a class="card" href="#you" style="text-decoration:none;color:inherit"><h3>My page</h3><span class="muted">Players: check in, your courts, partners and results. Captains: your pairs</span></a>
     <a class="card" href="#squads" style="text-decoration:none;color:inherit"><h3>Squads and players</h3><span class="muted">Every squad and line; tap a player for their matches and results</span></a>
     <a class="card" href="#tv" style="text-decoration:none;color:inherit"><h3>TV board</h3><span class="muted">Full screen on the club TV</span></a>
-    <a class="card" href="#posters" style="text-decoration:none;color:inherit"><h3>Court sheets</h3><span class="muted">Print and post one on each court</span></a>
+    <a class="card" href="#posters" style="text-decoration:none;color:inherit"><h3>Court sheets</h3><span class="muted">Print one per court: its matches in order</span></a>
     <a class="card" href="#control" style="text-decoration:none;color:inherit"><h3>Score desk</h3><span class="muted">Scores, check-in, captains' pairs</span></a>
   </div></div>`;
 }
@@ -897,7 +909,7 @@ function lineupsView(M){
   let rel = "";
   if (r >= R4) {
     const prevDone = roundDone(M, r - 1), ins = lineupIn(r), all4 = ins.every(Boolean), A = M.find((m) => m.r === r && m.t === 0), B = M.find((m) => m.r === r && m.t === 1);
-    const mu = r === R5 && skipped() ? "The finals were skipped." : A && A.h != null ? `Tie A (courts 6, 4, 2): <b>${esc(T(A.h).name)}</b> v <b>${esc(T(A.a).name)}</b> · Tie B (courts 5, 3, 1): <b>${esc(T(B.h).name)}</b> v <b>${esc(T(B.a).name)}</b>`
+    const mu = r === R5 && skipped() ? "The finals were skipped." : A && A.h != null ? `Tie A (courts ${(SETUP.courts || {}).A ? SETUP.courts.A.join(", ") : "1, 3, 5"}): <b>${esc(T(A.h).name)}</b> v <b>${esc(T(A.a).name)}</b> · Tie B (courts ${(SETUP.courts || {}).B ? SETUP.courts.B.join(", ") : "2, 4, 6"}): <b>${esc(T(B.h).name)}</b> v <b>${esc(T(B.a).name)}</b>`
       : `Matchups are set when every Round ${r} score is in (${roundMs(M, r - 1).filter((m) => SCORES.s[m.id]).length} of ${perRound(r - 1)}).`;
     rel = `<div class="cc ${released(r) ? "now" : "wait"}" style="margin-bottom:12px"><h3>Round ${r + 1} · ${esc(STAGE[r])}</h3><p style="margin:4px 0 8px">${mu}</p><div class="ccf">${released(r)
       ? `<span class="pill now">Released</span><span class="muted">The TV and phones show Round ${r + 1}.</span><button type="button" class="lnk" id="unrel" data-r="${r}">Undo release</button>`
@@ -1051,19 +1063,20 @@ function bindControl(){
 
 function postersView(){
   if (!SETUP) return `<div class="wrap">${noSetup()}</div>`;
-  const M = buildMatches().filter((m) => m.r < R4), byCourt = {}; M.forEach((m) => (byCourt[m.court] = byCourt[m.court] || []).push(m));
-  const tools = `<div class="noprint" style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap"><a class="brand" href="#" style="color:inherit;text-decoration:none">${title()}</a><button class="btn" type="button" id="print">Print court sheets</button><span class="muted">One sheet per court, the door QR poster, then one sheet per squad.</span></div>${pairsFinal() ? "" : `<div class="noprint cc wait" style="margin-bottom:16px"><b>Wait before printing:</b> ${[0, 1, 2, 3].filter((k) => SUBS[k]).length} of 4 captains have submitted their pairs. These sheets still show the default pairs.</div>`}`;
-  const pair = (s, p) => `<b>${esc(T(s).name)}</b><br>${esc(p.join(" & "))}`;
-  const courts = CO.filter((c) => byCourt[c]).map((c) => { const q = byCourt[c].sort((a, b) => a.r - b.r || a.w - b.w);
-    const later = [R4, R5].flatMap((r) => [0, 1].map((w) => `<tr class="desk"><td class="o">${q.length + (r - R4) * 2 + w + 1}</td><td>Round ${r + 1}<br>Wave ${w + 1}</td><td colspan="2">${esc(STAGE[r])}: matchup from the score desk</td><td class="score"></td></tr>`)).join("");
-    return `<section class="poster"><div class="sheetqr">${QR_SVG}<span>Scan for your next match</span></div><h1>Court ${c}</h1><div class="sub">${esc(SETUP.title || "The Diwali Cup")} · Line ${q[0].l + 1} · play these in order, wave 1 then wave 2</div>
-      <table><thead><tr><th>#</th><th>Round</th><th>Home</th><th>Away</th><th class="score">Score</th></tr></thead><tbody>${q.map((m, i) => `<tr><td class="o">${i + 1}</td><td>Round ${m.r + 1}<br>Wave ${m.w + 1}</td><td>${pair(m.h, m.hp)}</td><td>${pair(m.a, m.ap)}</td><td class="score"></td></tr>`).join("")}${later}</tbody></table>
-      <p class="rule"><b>Rounds 4 and 5: matchups from the score desk.</b> Start the next set as soon as this court is free and all four players are here; if a player is still on another court, wait for them. Golden point at deuce. Every set is first to 6 games; at 5 all, a four-serve shootout (each player serves once), recorded 6–5. After every set the winning squad walks the score to the score desk.</p></section>`; }).join("");
-  const door = `<section class="poster doorqr"><h1>Check in here</h1><div class="sub">Scan, find your name and enter your mobile number. That checks you in and opens your page: court, partner, opponents and results, live all day.</div>${QR_SVG}<p style="font:700 18px var(--text);margin-top:12px">${esc(BASE.replace(/^https?:\/\//, ""))}#you</p></section>`;
-  const cell = (n, s, r) => { const m = M.find((x) => x.r === r && ((x.h === s && x.hp.includes(n)) || (x.a === s && x.ap.includes(n)))); if (!m) return "<td></td>";
-    const partner = (m.h === s ? m.hp : m.ap).find((x) => x !== n); return `<td><b>Court ${m.court} · W${m.w + 1}</b><br><span style="color:#555">with ${esc(partner)}</span></td>`; };
-  const squads = SETUP.teams.map((t, s) => `<section class="poster squad"><h1>${esc(t.name)}</h1><div class="sub">Captain ${esc(t.captain || "")} · who plays when. W1 = wave 1, W2 = wave 2.</div>${[0, 1, 2].map((l) => `<h3 style="margin-top:14px;color:#111">Line ${l + 1}</h3><table><thead><tr><th>Player</th><th>Round 1</th><th>Round 2</th><th>Round 3</th><th>Round 4</th><th>Round 5</th></tr></thead><tbody>${SETUP.lines[s][l].map((n) => `<tr><td><b>${esc(n)}</b></td>${[0, 1, 2].map((r) => cell(n, s, r)).join("")}<td style="color:#555">From the desk</td><td style="color:#555">From the desk</td></tr>`).join("")}</tbody></table>`).join("")}<p class="rule">Rounds 4 and 5 depend on the standings: the captain collects the matchup from the score desk and hands in the lineup.</p></section>`).join("");
-  return `<div class="wrap">${tools}${courts}${door}${squads}</div>`;
+  const all = buildMatches(), M = all.filter((m) => m.r < R4), byCourt = {}; M.forEach((m) => (byCourt[m.court] = byCourt[m.court] || []).push(m));
+  const n = [0, 1, 2, 3].filter((k) => SUBS[k]).length;
+  const tools = `<div class="noprint cstools"><a class="brand" href="#" style="color:inherit;text-decoration:none">${title()}</a><button class="btn" type="button" id="print">Print court sheets</button><span class="muted">Six pages, one per court. Letter, portrait.</span></div>
+    ${pairsFinal() ? "" : `<div class="noprint cc wait" style="margin-bottom:16px"><b>Wait before printing:</b> ${n} of 4 captains have submitted their pairs. These sheets still show default pairs.</div>`}`;
+  const side = (s, p) => `<div class="csd"><i style="background:${esc(T(s).color)}"></i><div><b>${esc(T(s).name)}</b><span>${esc(p.join("  &  "))}</span></div></div>`;
+  const blank = `<div class="csw"></div>`;
+  const box = `<div class="csx"><span></span><em>–</em><span></span></div>`;
+  const courts = [1, 2, 3, 4, 5, 6].filter((c) => byCourt[c]).map((c) => {
+    const q = byCourt[c].sort((a, b) => a.r - b.r || a.w - b.w), line = q[0].l + 1, tie = all.find((m) => m.court === c).t;
+    const rows = q.map((m, i) => `<div class="csr"><div class="csn">${i + 1}</div><div class="csl"><b>Round ${m.r + 1}</b><span>Wave ${m.w + 1}</span></div>${side(m.h, m.hp)}<div class="csv">v</div>${side(m.a, m.ap)}${box}</div>`).join("");
+    const later = [R4, R5].flatMap((r) => [0, 1].map((w) => `<div class="csr desk"><div class="csn">${q.length + (r - R4) * 2 + w + 1}</div><div class="csl"><b>Round ${r + 1}</b><span>Wave ${w + 1}</span></div><div class="csd note"><i style="background:#D9D4E8"></i><div><b>${r === R4 ? (tie ? "2nd v 3rd" : "1st v 4th") : (tie ? "Third place" : "Cup final")}</b><span>Matchup from the score desk</span></div></div><div class="csv">v</div>${blank}${box}</div>`)).join("");
+    return `<section class="cs"><header class="csh"><div class="csc"><small>Court</small><b>${c}</b></div><div class="csm"><div class="csline">Line ${line}</div><div>${esc(SETUP.title || "The Diwali Cup")} ${esc(SETUP.subtitle || "")}</div><div class="muted2">Saturday, November 7 · play in order, wave 1 then wave 2</div></div></header>
+      <div class="cst"><div class="csr hd"><div>#</div><div>Round</div><div>Home</div><div></div><div>Away</div><div>Score</div></div>${rows}${later}</div></section>`; }).join("");
+  return `<div class="wrap">${tools}${courts}</div>`;
 }
 function bindPosters(){ const p = $("#print"); if (p) p.onclick = () => window.print(); }
 
