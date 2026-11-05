@@ -236,7 +236,7 @@ const CO = [6, 4, 2, 5, 3, 1], cOrd = (m) => CO.indexOf(m.court);
 const played = (id) => !!SCORES.s[id];
 const skipped = () => !!(SCORES.fin && SCORES.fin[0] && SCORES.fin[0].skip);
 const present = (n) => !!(CHECKINS[n] || RESERVES[n]);
-/* Every set in every round is first to 6 games; 6 all goes to a 7-point tiebreak, recorded 7-6. */
+/* Every set in every round is first to 6 games; 5 all goes to a four-serve shootout, recorded 6-5. */
 const gamesTo = () => 6;
 const released = (r) => r < R4 || !!(SETUP && SETUP.released && SETUP.released[r]);
 const pub = (m) => released(m.r);   // may the TV, phones and posters show this match's squads and names?
@@ -246,7 +246,7 @@ const roundMs = (M, r) => M.filter((m) => m.r === r);
 const roundDone = (M, r) => { const ms = roundMs(M, r); return ms.length === perRound(r) && ms.every((m) => SCORES.s[m.id]); };
 const tieName = (m) => m.r === R5 ? (m.t ? "Third place" : "Cup final") : m.r === R4 ? (m.t ? "2nd v 3rd" : "1st v 4th") : "";
 const rlab = (m) => `Round ${m.r + 1}${tieName(m) ? ", " + tieName(m) : ""}${WAVES(m.r) > 1 ? ` · Wave ${m.w + 1}` : ""}`;
-const scoreHint = (r) => gamesTo(r) === 5 ? "5 all: four-serve shootout, record 6–5" : `${gamesTo(r)} all: 7-point tiebreak, record ${gamesTo(r) + 1}–${gamesTo(r)}`;
+const scoreHint = () => "5 all: four-serve shootout, record 6–5";
 function buildMatches(){
   if (!SETUP) return [];
   const M = [], C = SETUP.courts || { A:[6,4,2], B:[5,3,1] };
@@ -712,20 +712,20 @@ function lineupsView(M){
 function scoreForm(m){
   if (m.h == null) return `<p class="muted" style="margin:6px 0">Squads are set when every Round ${m.r} score is in.</p>`;
   if (!released(m.r)) return `<p class="muted" style="margin:6px 0">Round ${m.r + 1} is sealed. Release it on the Lineups tab, then enter scores.</p>`;
-  const p = pickState[m.id] || [null, null], max = gamesTo(m.r) + 1;
+  const p = pickState[m.id] || [null, null], max = gamesTo(m.r);
   const btns = (side) => `<div class="pick" role="group" aria-label="${side ? "Away" : "Home"} games">${Array.from({ length: max + 1 }, (_, v) => `<button type="button" data-m="${esc(m.id)}" data-side="${side}" data-v="${v}" aria-pressed="${p[side] === v}">${v}</button>`).join("")}</div>`;
   return `<div class="row">${sideHTML(m.h, m.hp)}${btns(0)}</div><div class="row">${sideHTML(m.a, m.ap)}${btns(1)}</div>
     <div class="muted" style="font-size:13px">${esc(scoreHint(m.r))}</div>
     <div style="margin-top:6px;display:flex;gap:10px;align-items:center"><button class="btn sm" type="button" data-save="${esc(m.id)}">Save ${p[0] != null && p[1] != null ? p.join("–") : ""}</button><div class="msg" style="margin:0" id="msg-${esc(m.id.replace(/\|/g, "-"))}" role="alert"></div></div>`;
 }
-/* Every round: first to 6 (6-0..6-5), or 7-6 after the tiebreak. */
+/* Every round: first to 6 (6-0..6-5). At 5 all a four-serve shootout decides the 6th game, recorded 6-5. */
 function validScore(p, r){
   const g = gamesTo(r);
   if (p[0] == null || p[1] == null) return "Pick both scores.";
   const hi = Math.max(p[0], p[1]), lo = Math.min(p[0], p[1]);
-  if ((hi === g && lo < g) || (hi === g + 1 && lo === g)) return null;
+  if (hi === g && lo < g) return null;
   if (hi === lo) return `A set can't finish level. ${scoreHint(r)}.`;
-  return `Not a finished set: ${g}–0 to ${g}–${g - 1}, or ${g + 1}–${g} at ${g} all.`;
+  return `Not a finished set: ${g}–0 to ${g}–${g - 1}. ${scoreHint(r)}.`;
 }
 function setupPanel(){
   // The live board makes you type CLEAR, because practice taught "Reset test data" in this same spot.
@@ -843,7 +843,7 @@ function postersView(){
     const later = [R4, R5].flatMap((r) => [0, 1].map((w) => `<tr class="desk"><td class="o">${q.length + (r - R4) * 2 + w + 1}</td><td>Round ${r + 1}<br>Wave ${w + 1}</td><td colspan="2">${esc(STAGE[r])}: matchup from the score desk</td><td class="score"></td></tr>`)).join("");
     return `<section class="poster"><div class="sheetqr">${QR_SVG}<span>Scan for your next match</span></div><h1>Court ${c}</h1><div class="sub">${esc(SETUP.title || "The Diwali Cup")} · Line ${q[0].l + 1} · play these in order, wave 1 then wave 2</div>
       <table><thead><tr><th>#</th><th>Round</th><th>Home</th><th>Away</th><th class="score">Score</th></tr></thead><tbody>${q.map((m, i) => `<tr><td class="o">${i + 1}</td><td>Round ${m.r + 1}<br>Wave ${m.w + 1}</td><td>${pair(m.h, m.hp)}</td><td>${pair(m.a, m.ap)}</td><td class="score"></td></tr>`).join("")}${later}</tbody></table>
-      <p class="rule"><b>Rounds 4 and 5: matchups from the score desk.</b> Start the next set as soon as this court is free and all four players are here; if a player is still on another court, wait for them. Golden point at deuce. Every set is first to 6 games; at 6 all, a 7-point tiebreak, recorded 7–6. After every set the winning squad walks the score to the score desk.</p></section>`; }).join("");
+      <p class="rule"><b>Rounds 4 and 5: matchups from the score desk.</b> Start the next set as soon as this court is free and all four players are here; if a player is still on another court, wait for them. Golden point at deuce. Every set is first to 6 games; at 5 all, a four-serve shootout (each player serves once), recorded 6–5. After every set the winning squad walks the score to the score desk.</p></section>`; }).join("");
   const door = `<section class="poster doorqr"><h1>Check in here</h1><div class="sub">Scan, then tap your name. That checks you in and opens your matches: court, partner, opponents and results, live all day.</div>${QR_SVG}<p style="font:700 18px var(--text);margin-top:12px">${esc(BASE.replace(/^https?:\/\//, ""))}#you</p></section>`;
   const cell = (n, s, r) => { const m = M.find((x) => x.r === r && ((x.h === s && x.hp.includes(n)) || (x.a === s && x.ap.includes(n)))); if (!m) return "<td></td>";
     const partner = (m.h === s ? m.hp : m.ap).find((x) => x !== n); return `<td><b>Court ${m.court} · W${m.w + 1}</b><br><span style="color:#555">with ${esc(partner)}</span></td>`; };
