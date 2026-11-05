@@ -212,7 +212,7 @@ const ord = (n) => n + (["th","st","nd","rd"][((n % 100) - 20) % 10] || ["th","s
 let view = "home", meName = lsGet(LS.me, null), ctlTab = "courts", pickState = {};
 
 /* ---------- model ----------
-   Format v2 (FORMAT_V2.md): 5 rounds x 2 waves on 6 courts = 60 sets; every player plays one set per round, 5 in all.
+   Format v2 (FORMAT_V2.md): Rounds 1-3 in 2 waves, Rounds 4-5 in 1 wave, on 6 courts = 48 sets; every player plays 4 (Rounds 1-3, then Round 4 or 5).
    Match id r|t|l|w: round 0-4, tie 0 (A, courts 6/4/2 = lines 1/2/3) or 1 (B, courts 5/3/1), line 0-2, wave 0-1.
    A court keeps the same line, tie and squads for both waves of a round. Rounds 1-3 are fixed (setup.rounds).
    Round 4 (seeding): Tie A 1st v 4th, Tie B 2nd v 3rd, from the standings after Round 3.
@@ -228,34 +228,40 @@ let view = "home", meName = lsGet(LS.me, null), ctlTab = "courts", pickState = {
      fin[0].skip = true  the day ended without finals (placings come from the standings after Round 4)
    Separate keys mean writing one never overwrites another. Once a lock is set, corrections to earlier scores
    can't move that tie's squads. "Clear all scores" empties fin, which removes the locks. */
-const NR = 5, R4 = 3, R5 = 4, PER_ROUND = 12;
+const NR = 5, R4 = 3, R5 = 4;
+/* Rounds 1-3 run in two waves (12 sets); Rounds 4 and 5 are one wave each (6 sets). */
+const WAVES = (r) => r >= R4 ? 1 : 2, perRound = (r) => 6 * WAVES(r);
 const STAGE = ["Round robin", "Round robin", "Round robin", "Seeding round", "Finals"];
 const CO = [6, 4, 2, 5, 3, 1], cOrd = (m) => CO.indexOf(m.court);
 const played = (id) => !!SCORES.s[id];
 const skipped = () => !!(SCORES.fin && SCORES.fin[0] && SCORES.fin[0].skip);
 const present = (n) => !!(CHECKINS[n] || RESERVES[n]);
-const gamesTo = (r) => { const g = SETUP && SETUP.format && SETUP.format.gamesTo; return (Array.isArray(g) ? g[r] : null) || (r === R5 ? 6 : 5); };
+/* Every set in every round is first to 6 games; 6 all goes to a 7-point tiebreak, recorded 7-6. */
+const gamesTo = () => 6;
 const released = (r) => r < R4 || !!(SETUP && SETUP.released && SETUP.released[r]);
 const pub = (m) => released(m.r);   // may the TV, phones and posters show this match's squads and names?
 const lineupIn = (r) => [0, 1, 2, 3].map((s) => !!(SETUP && SETUP.lineupIn && SETUP.lineupIn[r] && SETUP.lineupIn[r][s]));
 const lockOf = (r, t) => { const f = SCORES.fin && SCORES.fin[t], x = f && f[r === R4 ? "r4" : "r5"]; return x && x.h != null && x.a != null ? x : null; };
 const roundMs = (M, r) => M.filter((m) => m.r === r);
-const roundDone = (M, r) => { const ms = roundMs(M, r); return ms.length === PER_ROUND && ms.every((m) => SCORES.s[m.id]); };
+const roundDone = (M, r) => { const ms = roundMs(M, r); return ms.length === perRound(r) && ms.every((m) => SCORES.s[m.id]); };
 const tieName = (m) => m.r === R5 ? (m.t ? "Third place" : "Cup final") : m.r === R4 ? (m.t ? "2nd v 3rd" : "1st v 4th") : "";
-const rlab = (m) => `Round ${m.r + 1}${tieName(m) ? ", " + tieName(m) : ""} · Wave ${m.w + 1}`;
+const rlab = (m) => `Round ${m.r + 1}${tieName(m) ? ", " + tieName(m) : ""}${WAVES(m.r) > 1 ? ` · Wave ${m.w + 1}` : ""}`;
 const scoreHint = (r) => gamesTo(r) === 5 ? "5 all: four-serve shootout, record 6–5" : `${gamesTo(r)} all: 7-point tiebreak, record ${gamesTo(r) + 1}–${gamesTo(r)}`;
 function buildMatches(){
   if (!SETUP) return [];
   const M = [], C = SETUP.courts || { A:[6,4,2], B:[5,3,1] };
-  const add = (r, t, h, a) => { for (let l = 0; l < 3; l++) for (let w = 0; w < 2; w++) M.push({ id:`${r}|${t}|${l}|${w}`, r, t, l, w, court:C[t ? "B" : "A"][l], h, a,
-    hp: h == null ? null : SETUP.pairs[r][h][l][w], ap: a == null ? null : SETUP.pairs[r][a][l][w], final: r === R5 }); };
+  // Rounds 4 and 5 are one wave: the pair a captain names for Round 4 plays it, and the other pair plays Round 5,
+  // so every player has exactly four sets (one in each of Rounds 1-3, then Round 4 or Round 5).
+  const pr = (r, x, l, w) => r === R5 ? SETUP.pairs[R4][x][l][1] : SETUP.pairs[r][x][l][w];
+  const add = (r, t, h, a) => { for (let l = 0; l < 3; l++) for (let w = 0; w < WAVES(r); w++) M.push({ id:`${r}|${t}|${l}|${w}`, r, t, l, w, court:C[t ? "B" : "A"][l], h, a,
+    hp: h == null ? null : pr(r, h, l, w), ap: a == null ? null : pr(r, a, l, w), final: r === R5 }); };
   for (let r = 0; r < R4; r++) for (let t = 0; t < 2; t++) add(r, t, SETUP.rounds[r][t][0], SETUP.rounds[r][t][1]);
   // Seeding round: from the standings after Round 3, once all 36 of its sets are in (or from the lock).
   const S3 = M.every((m) => SCORES.s[m.id]) ? standings(M, R4) : null;
   for (let t = 0; t < 2; t++) { const k = lockOf(R4, t), mu = k ? [k.h, k.a] : S3 ? (t ? [S3[1].s, S3[2].s] : [S3[0].s, S3[3].s]) : [null, null]; add(R4, t, mu[0], mu[1]); }
   if (skipped()) return M;
   // Round 5 is a bracket off Round 4: the two tie winners play for the Cup, the two losers for third.
-  const A4 = tieResult(M, R4, 0), B4 = tieResult(M, R4, 1), ok4 = A4 && B4 && A4.w != null && B4.w != null && M.slice(0, 36).every((m) => SCORES.s[m.id]);
+  const A4 = tieResult(M, R4, 0), B4 = tieResult(M, R4, 1), ok4 = A4 && B4 && A4.w != null && B4.w != null && M.filter((m) => m.r < R4).every((m) => SCORES.s[m.id]);
   const lose = (x) => x.w === x.h ? x.a : x.h;
   for (let t = 0; t < 2; t++) { const k = lockOf(R5, t), mu = k ? [k.h, k.a] : ok4 ? (t ? [lose(A4), lose(B4)] : [A4.w, B4.w]) : [null, null]; add(R5, t, mu[0], mu[1]); }
   return M;
@@ -289,7 +295,7 @@ function statusAll(M){
       if (up) { st[m.id] = { k:"later", pos: i }; return; }
       up = true;
       if (m.r >= R4 && !roundDone(M, m.r - 1)) { const miss = roundMs(M, m.r - 1).filter((x) => !SCORES.s[x.id]).sort((a, b) => a.w - b.w || cOrd(a) - cOrd(b));
-        st[m.id] = { k:"wait", gate:true, why:`Round ${m.r + 1} starts when every Round ${m.r} score is in. Still missing: ${miss.slice(0, 3).map((x) => `court ${x.court} wave ${x.w + 1}`).join("; ")}${miss.length > 3 ? ` and ${miss.length - 3} more` : ""}` }; return; }
+        st[m.id] = { k:"wait", gate:true, why:`Round ${m.r + 1} starts when every Round ${m.r} score is in. Still missing: ${miss.slice(0, 3).map((x) => `court ${x.court}${WAVES(x.r) > 1 ? ` wave ${x.w + 1}` : ""}`).join("; ")}${miss.length > 3 ? ` and ${miss.length - 3} more` : ""}` }; return; }
       if (!released(m.r) || m.h == null) { st[m.id] = { k:"wait", gate:true, sealed:true, why:`Round ${m.r + 1} starts when the score desk releases it` }; return; }
       for (const p of [].concat(m.hp, m.ap)) { const b = unscoredBefore(p, m); if (b) { st[m.id] = { k:"wait", why:`Waiting for ${p}, still playing on court ${b.court}`, on:b }; return; } }
       st[m.id] = { k:"now" };
@@ -526,10 +532,10 @@ function tvView(){
     const q = byCourt[c], cur = q.find((m) => !played(m.id)), last = q.slice().reverse().find((m) => SCORES.s[m.id]);
     const nxt = cur ? q[q.indexOf(cur) + 1] : null;
     const lastHTML = last ? `<div class="nx">Last: ${esc(nick(last.h))} <b class="num" style="color:var(--ink)">${SCORES.s[last.id][0]}–${SCORES.s[last.id][1]}</b> ${esc(nick(last.a))} · R${last.r + 1} W${last.w + 1}</div>` : "";
-    const head = (m) => `<div class="ch"><span class="cn">Court ${c}</span><span class="cl">${m ? `R${m.r + 1} · Wave ${m.w + 1} · ` : ""}Line ${q[0].l + 1}</span></div>`;
+    const head = (m) => `<div class="ch"><span class="cn">Court ${c}</span><span class="cl">${m ? `R${m.r + 1}${WAVES(m.r) > 1 ? ` · Wave ${m.w + 1}` : ""} · ` : ""}Line ${q[0].l + 1}</span></div>`;
     if (!cur) return `<div class="ct">${head(null)}<div class="st"><b>All sets played</b></div>${lastHTML}</div>`;
     const s = st[cur.id];
-    const nxtHTML = !nxt ? "" : pub(nxt) && nxt.h != null ? `<div class="nx"><b style="color:var(--ink)">Next here</b> · R${nxt.r + 1} wave ${nxt.w + 1}<br>${pairs(nxt)}</div>` : `<div class="nx"><b style="color:var(--ink)">Next here</b> · ${esc(sealedText(nxt.r))}</div>`;
+    const nxtHTML = !nxt ? "" : pub(nxt) && nxt.h != null ? `<div class="nx"><b style="color:var(--ink)">Next here</b> · R${nxt.r + 1}${WAVES(nxt.r) > 1 ? ` wave ${nxt.w + 1}` : ""}<br>${pairs(nxt)}</div>` : `<div class="nx"><b style="color:var(--ink)">Next here</b> · ${esc(sealedText(nxt.r))}</div>`;
     if (!pub(cur) || cur.h == null) return `<div class="ct wait">${head(null)}<div class="seal">${esc(sealedText(cur.r))}</div><div class="st">${s.sealed ? "Starts when the desk releases the round" : esc(s.why)}</div>${lastHTML}</div>`;
     return `<div class="ct ${s.k}">${head(cur)}<div class="cl" style="color:var(--mari)">${esc(tieName(cur) || STAGE[cur.r])}</div>
       ${sideHTML(cur.h, cur.hp)}<div class="vs">v</div>${sideHTML(cur.a, cur.ap)}
@@ -571,8 +577,8 @@ function youView(){
   const inM = (m) => (m.hp && m.hp.includes(meName)) || (m.ap && m.ap.includes(meName));
   // One entry per round: my public match, or the sealed placeholder for Rounds 4 and 5 until the desk releases them.
   const rounds = [];
-  for (let r = 0; r < NR; r++) { if (r === R5 && skipped()) break; const m = pub({ r }) ? M.find((x) => x.r === r && inM(x)) : null; rounds.push(m ? { r, m } : { r, sealed: true }); }
-  const nextE = rounds.find((e) => e.sealed || !played(e.m.id));
+  for (let r = 0; r < NR; r++) { if (r === R5 && skipped()) break; const m = pub({ r }) ? M.find((x) => x.r === r && inM(x)) : null; rounds.push(m ? { r, m } : pub({ r }) && M.some((x) => x.r === r && x.h != null) ? { r, off: true } : { r, sealed: true }); }
+  const nextE = rounds.find((e) => e.sealed || (e.m && !played(e.m.id)));
   const pos = (m) => { const q = byCourt[m.court]; const cur = q.findIndex((x) => !played(x.id)); return q.indexOf(m) - cur; };
   const side = (m) => { const h = m.hp.includes(meName); return { h, partner: (h ? m.hp : m.ap).find((n) => n !== meName), opp: h ? m.ap : m.hp, os: h ? m.a : m.h }; };
   let nextHTML;
@@ -585,6 +591,7 @@ function youView(){
       ${s.k === "wait" ? `<div class="muted" style="margin-top:4px">${esc(s.why)}</div>` : ""}</div>`;
   } else nextHTML = `<div class="next done"><div class="muted">All your sets are played</div><div class="big num">${P.gw}–${P.gl}</div><div>games won and lost today</div></div>`;
   const list = rounds.map((e) => {
+    if (e.off) return `<div class="m"><div class="ctn">–<small>court</small></div><div class="who">Round ${e.r + 1} · ${esc(STAGE[e.r])} <span class="pill later">Not playing</span><br><span class="muted">${e.r === R4 ? "Your pair plays Round 5." : "Your pair played Round 4."}</span></div><div></div></div>`;
     if (e.sealed) return `<div class="m"><div class="ctn">–<small>court</small></div><div class="who">Round ${e.r + 1} · ${esc(STAGE[e.r])} <span class="pill later">From the desk</span><br><span class="muted">${esc(DESK_NOTE)}</span></div><div></div></div>`;
     const m = e.m, sc = SCORES.s[m.id], s = st[m.id], x = side(m), score = sc ? (x.h ? sc : [sc[1], sc[0]]) : null;
     return `<div class="m ${sc ? "me-done" : ""}"><div class="ctn">${m.court}<small>court</small></div><div class="who">${esc(rlab(m))} <span class="pill ${s.k}">${s.k === "now" ? "Up now" : s.k === "wait" ? "Waiting" : s.k === "done" ? (score[0] > score[1] ? "Won" : "Lost") : "Later"}</span><br>with <b>${esc(x.partner)}</b> v ${esc(x.opp.join(" & "))} <span class="muted">(${esc(T(x.os).name)})</span></div><div class="sc num">${score ? score.join("–") : ""}</div></div>`; }).join("");
@@ -638,14 +645,14 @@ function controlView(){
       // The editor opens right under its row, so the scorekeeper never loses their place.
       return tr + (editId === m.id && open ? `<tr><td colspan="6" style="padding:0 0 10px"><div class="cc" id="editor"><h3>Court ${m.court} · ${esc(rlab(m))} · Line ${m.l + 1}</h3>${sc ? `<p style="margin:0 0 4px">Saved now: <b>${esc(T(m.h).name)} ${sc[0]}–${sc[1]} ${esc(T(m.a).name)}</b>. Pick the right score and Save.</p>` : ""}${scoreForm(m)}<button class="btn alt sm" type="button" id="edClose" style="margin-top:6px">Close</button></div></td></tr>` : ""); };
     const body = [0, 1, 2, 3, 4].map((r) => [0, 1].map((w) => { const ms = M.filter((m) => m.r === r && m.w === w).sort((a, b) => cOrd(a) - cOrd(b)); if (!ms.length) return "";
-      return `<tr class="grp"><th colspan="6">Round ${r + 1} · ${esc(STAGE[r])} · Wave ${w + 1}${r >= R4 && !released(r) ? " · sealed" : ""}</th></tr>` + ms.map(row).join(""); }).join("")).join("");
+      return `<tr class="grp"><th colspan="6">Round ${r + 1} · ${esc(STAGE[r])}${WAVES(r) > 1 ? ` · Wave ${w + 1}` : ""}${r >= R4 && !released(r) ? " · sealed" : ""}</th></tr>` + ms.map(row).join(""); }).join("")).join("");
     return head + `<h1>Scoring</h1>` + tabs + `<p class="muted">Every set by round and wave. Fix a score by entering it again, or clear it.</p><div class="tw"><table class="all"><thead><tr><th>Court</th><th>Line</th><th>Home</th><th>Away</th><th>Score</th><th></th></tr></thead><tbody>${body}</tbody></table></div></div>`;
   }
   // ---- Courts tab ----
   const S4 = standings(M), anyR5 = M.some((m) => m.r === R5 && SCORES.s[m.id]);
   const chips = `<div class="stagebar">${[0, 1, 2, 3, 4].map((r) => { if (r === R5 && skipped()) return `<span class="chip">Round 5 · Finals · skipped</span>`;
     const n = roundMs(M, r).filter((m) => SCORES.s[m.id]).length;
-    return `<span class="chip ${n === PER_ROUND ? "done" : n ? "now" : ""}"><b>Round ${r + 1}</b> ${esc(STAGE[r])} · <span class="num">${n}/${PER_ROUND}</span>${r >= R4 ? (released(r) ? " · released" : " · sealed") : ""}</span>`; }).join("")}</div>`;
+    return `<span class="chip ${n === perRound(r) ? "done" : n ? "now" : ""}"><b>Round ${r + 1}</b> ${esc(STAGE[r])} · <span class="num">${n}/${perRound(r)}</span>${r >= R4 ? (released(r) ? " · released" : " · sealed") : ""}</span>`; }).join("")}</div>`;
   let top = "";
   // Matchups ready for the captains, before the round is released.
   [R4, R5].forEach((r) => { if (r === R5 && skipped()) return; const a = M.find((m) => m.r === r && m.t === 0), b = M.find((m) => m.r === r && m.t === 1);
@@ -664,7 +671,7 @@ function controlView(){
   const cards = CO.filter((c) => byCourt[c]).map((c) => {
     const q = byCourt[c], cur = q.find((m) => !played(m.id)), last = q.slice().reverse().find((m) => SCORES.s[m.id]);
     const ed = editId ? q.find((m) => m.id === editId && SCORES.s[m.id]) : null;
-    const lastHTML = last ? `<div class="ccl">Last: ${esc(`R${last.r + 1} W${last.w + 1}`)} · ${esc(nick(last.h))} <b class="num">${SCORES.s[last.id][0]}–${SCORES.s[last.id][1]}</b> ${esc(nick(last.a))}${ed ? "" : ` <button type="button" class="lnk" data-edit="${esc(last.id)}">Fix</button>`}</div>` : "";
+    const lastHTML = last ? `<div class="ccl">Last: ${esc(`R${last.r + 1}${WAVES(last.r) > 1 ? ` W${last.w + 1}` : ""}`)} · ${esc(nick(last.h))} <b class="num">${SCORES.s[last.id][0]}–${SCORES.s[last.id][1]}</b> ${esc(nick(last.a))}${ed ? "" : ` <button type="button" class="lnk" data-edit="${esc(last.id)}">Fix</button>`}</div>` : "";
     const edHTML = ed ? `<div class="tc"><div class="tch">Fixing ${esc(rlab(ed))}</div><p style="margin:2px 0 0;font-size:14px">Saved now: <b>${esc(nick(ed.h))} ${SCORES.s[ed.id][0]}–${SCORES.s[ed.id][1]} ${esc(nick(ed.a))}</b></p>${scoreForm(ed)}<button class="btn alt sm" type="button" id="edClose" style="margin-top:6px">Close</button></div>` : "";
     if (!cur) return `<div class="cc"><h3>Court ${c} · Line ${q[0].l + 1}</h3>${edHTML}<p class="muted" style="margin:4px 0 0">All sets played.</p>${lastHTML}</div>`;
     const s = st[cur.id], open = cur.h != null && released(cur.r);
@@ -674,18 +681,18 @@ function controlView(){
       : `<button type="button" class="lnk" data-ffo="${esc(cur.id)}">Forfeit (${g}–0)…</button>`;
     return `<div class="cc ${s.k}"><h3>Court ${c} · Line ${cur.l + 1}</h3><div class="cur">${esc(rlab(cur))} <span class="muted" style="font-weight:400;font-size:14px">· ${esc(STAGE[cur.r])} · ${s.k === "now" ? "playing now" : esc(s.why)}</span></div>${missing.length ? `<div class="msg err" style="margin:2px 0 0">Not checked in: ${esc(missing.join(", "))}</div>` : ""}${edHTML || (cur.h == null ? "" : !released(cur.r) ? `<div class="ccf"><button type="button" class="btn alt sm" data-go="lineups" data-r="${cur.r}">Round ${cur.r + 1} is sealed: open Lineups to release it</button></div>` : scoreForm(cur))}<div class="ccf">${ff}</div>${lastHTML}</div>`;
   }).join("");
-  return head + `<h1>Scoring</h1>` + tabs + chips + top + `<p class="muted" style="margin:0 0 10px">The winning squad walks each score to the desk. Tap the home games, the away games, then Save. Rounds 1–4: ${esc(scoreHint(0))}. Round 5: ${esc(scoreHint(R5))}.</p><div class="ctl-courts six">${cards}</div></div>`;
+  return head + `<h1>Scoring</h1>` + tabs + chips + top + `<p class="muted" style="margin:0 0 10px">The winning squad walks each score to the desk. Tap the home games, the away games, then Save. Every set: first to 6, ${esc(scoreHint(0))}.</p><div class="ctl-courts six">${cards}</div></div>`;
 }
 /* Lineups tab: each squad's wave 1 / wave 2 split per line and round. Rounds 4 and 5 get "lineup in" ticks and a release. */
 function lineupsView(M){
   const r = luRound;
   const rt = `<div class="tabs" role="group" aria-label="Round">${[0, 1, 2, 3, 4].map((k) => `<button type="button" data-lr="${k}" aria-pressed="${k === r}">Round ${k + 1}${k >= R4 ? (released(k) ? " · released" : " · sealed") : ""}</button>`).join("")}</div>`;
-  const warns = [0, 1, 2, 3].map((s) => changedLines(r, s).length > 2 ? `${nick(s)} changed ${changedLines(r, s).length} lines in Round ${r + 1}; the rule allows two.` : "").filter(Boolean);
+  const warns = [0, 1, 2, 3].map((s) => r < R4 && changedLines(r, s).length > 2 ? `${nick(s)} changed ${changedLines(r, s).length} lines in Round ${r + 1}; the rule allows two.` : "").filter(Boolean);
   let rel = "";
   if (r >= R4) {
     const prevDone = roundDone(M, r - 1), ins = lineupIn(r), all4 = ins.every(Boolean), A = M.find((m) => m.r === r && m.t === 0), B = M.find((m) => m.r === r && m.t === 1);
     const mu = r === R5 && skipped() ? "The finals were skipped." : A && A.h != null ? `Tie A (courts 6, 4, 2): <b>${esc(T(A.h).name)}</b> v <b>${esc(T(A.a).name)}</b> · Tie B (courts 5, 3, 1): <b>${esc(T(B.h).name)}</b> v <b>${esc(T(B.a).name)}</b>`
-      : `Matchups are set when every Round ${r} score is in (${roundMs(M, r - 1).filter((m) => SCORES.s[m.id]).length} of ${PER_ROUND}).`;
+      : `Matchups are set when every Round ${r} score is in (${roundMs(M, r - 1).filter((m) => SCORES.s[m.id]).length} of ${perRound(r - 1)}).`;
     rel = `<div class="cc ${released(r) ? "now" : "wait"}" style="margin-bottom:12px"><h3>Round ${r + 1} · ${esc(STAGE[r])}</h3><p style="margin:4px 0 8px">${mu}</p><div class="ccf">${released(r)
       ? `<span class="pill now">Released</span><span class="muted">The TV and phones show Round ${r + 1}.</span><button type="button" class="lnk" id="unrel" data-r="${r}">Undo release</button>`
       : `<button type="button" class="btn" id="release" data-r="${r}" ${prevDone && all4 ? "" : "disabled"}>Release Round ${r + 1}</button><span class="muted">${!prevDone ? `Needs every Round ${r} score first.` : !all4 ? `Waiting for lineups: ${esc(SETUP.teams.filter((_, s) => !ins[s]).map((t) => t.name).join(", "))}.` : "All four lineups are in. Releasing shows the round on the TV and phones."}</span>`}</div></div>`;
@@ -694,14 +701,17 @@ function lineupsView(M){
     const ch = changedLines(r, s);
     const inBox = r >= R4 ? `<label class="chk"><input type="checkbox" data-lin="${r}|${s}" ${lineupIn(r)[s] ? "checked" : ""}> Lineup in</label>` : "";
     const lines = [0, 1, 2].map((l) => {
-      const q = SETUP.lines[s][l], cur = SETUP.pairs[r][s][l], opts = splitOpts(q), k = opts.findIndex((o) => samePair(o, cur));
-      const scored = M.some((m) => m.r === r && m.l === l && (m.h === s || m.a === s) && SCORES.s[m.id]);
-      return `<div class="lurow"><div class="lul">Line ${l + 1}${ch.includes(l) ? ` <span class="pill wait">changed</span>` : ""}</div><div class="luw"><span><b>Wave 1</b> ${esc(cur[0].join(" & "))}</span><span><b>Wave 2</b> ${esc(cur[1].join(" & "))}</span></div>
-        <select data-lu="${r}|${s}|${l}" ${scored ? "disabled" : ""} aria-label="${esc(tm.name)} Line ${l + 1}, Round ${r + 1} lineup">${opts.map((o, i) => `<option value="${i}" ${i === k ? "selected" : ""}>Wave 1: ${esc(o[0].join(" & "))} / Wave 2: ${esc(o[1].join(" & "))}</option>`).join("")}</select>${scored ? `<div class="muted" style="font-size:12px">A set is scored; clear it to change this line.</div>` : ""}</div>`;
+      const q = SETUP.lines[s][l], er = r === R5 ? R4 : r, cur = SETUP.pairs[er][s][l], opts = splitOpts(q), k = opts.findIndex((o) => samePair(o, cur));
+      // Round 5 has no choice of its own: the pair that sat out Round 4 plays it.
+      if (r === R5) return `<div class="lurow"><div class="lul">Line ${l + 1}</div><div class="luw"><span><b>Plays Round 5</b> ${esc(cur[1].join(" & "))}</span></div><div class="muted" style="font-size:12px">The pair that sat out Round 4. Change it on the Round 4 tab.</div></div>`;
+      const scored = M.some((m) => (m.r === r || (r === R4 && m.r === R5)) && m.l === l && (m.h === s || m.a === s) && SCORES.s[m.id]);
+      const lab = r === R4 ? ["Round 4", "Round 5"] : ["Wave 1", "Wave 2"];
+      return `<div class="lurow"><div class="lul">Line ${l + 1}${r < R4 && ch.includes(l) ? ` <span class="pill wait">changed</span>` : ""}</div><div class="luw"><span><b>${lab[0]}</b> ${esc(cur[0].join(" & "))}</span><span><b>${lab[1]}</b> ${esc(cur[1].join(" & "))}</span></div>
+        <select data-lu="${r}|${s}|${l}" ${scored ? "disabled" : ""} aria-label="${esc(tm.name)} Line ${l + 1}, Round ${r + 1} lineup">${opts.map((o, i) => `<option value="${i}" ${i === k ? "selected" : ""}>${lab[0]}: ${esc(o[0].join(" & "))} / ${lab[1]}: ${esc(o[1].join(" & "))}</option>`).join("")}</select>${scored ? `<div class="muted" style="font-size:12px">A set is scored; clear it to change this line.</div>` : ""}</div>`;
     }).join("");
-    return `<div class="cc"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="margin:0"><span class="sw" style="background:${esc(tm.color)}"></span>${esc(tm.name)}</h3>${inBox}</div>${ch.length > 2 ? `<div class="msg err">${esc(nick(s))} changed ${ch.length} lines in Round ${r + 1}; the rule allows two.</div>` : ""}${lines}</div>`;
+    return `<div class="cc"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="margin:0"><span class="sw" style="background:${esc(tm.color)}"></span>${esc(tm.name)}</h3>${inBox}</div>${r < R4 && ch.length > 2 ? `<div class="msg err">${esc(nick(s))} changed ${ch.length} lines in Round ${r + 1}; the rule allows two.</div>` : ""}${lines}</div>`;
   }).join("");
-  return rt + rel + (warns.length ? `<div class="msg err" style="margin:0 0 8px">${warns.map(esc).join("<br>")}</div>` : "") + `<p class="muted" style="margin:0 0 10px">On the day a captain may switch two lines, no more. Pick the new split; it saves at once. "Changed" compares with the lineups loaded from the kit.</p><div class="ctl-courts lu4">${cards}</div><div class="msg ${luMsg && luMsg.err ? "err" : "ok"}" id="luMsg" role="alert">${luMsg ? esc(luMsg.t) : ""}</div>`;
+  return rt + rel + (warns.length ? `<div class="msg err" style="margin:0 0 8px">${warns.map(esc).join("<br>")}</div>` : "") + `<p class="muted" style="margin:0 0 10px">${r < R4 ? `On the day a captain may switch two lines, no more. Pick the new split; it saves at once. "Changed" compares with the lineups loaded from the kit.` : r === R4 ? "Rounds 4 and 5 are one wave each. Enter the pair each captain names for Round 4; the other pair on that line plays Round 5, so everyone plays four sets." : "Round 5 follows from Round 4: on every line, the pair that sat out Round 4 plays."}</p><div class="ctl-courts lu4">${cards}</div><div class="msg ${luMsg && luMsg.err ? "err" : "ok"}" id="luMsg" role="alert">${luMsg ? esc(luMsg.t) : ""}</div>`;
 }
 function scoreForm(m){
   if (m.h == null) return `<p class="muted" style="margin:6px 0">Squads are set when every Round ${m.r} score is in.</p>`;
@@ -712,7 +722,7 @@ function scoreForm(m){
     <div class="muted" style="font-size:13px">${esc(scoreHint(m.r))}</div>
     <div style="margin-top:6px;display:flex;gap:10px;align-items:center"><button class="btn sm" type="button" data-save="${esc(m.id)}">Save ${p[0] != null && p[1] != null ? p.join("–") : ""}</button><div class="msg" style="margin:0" id="msg-${esc(m.id.replace(/\|/g, "-"))}" role="alert"></div></div>`;
 }
-/* Rounds 1-4: first to 5 (5-0..5-4), or 6-5 after the 5-all shootout. Round 5: first to 6 (6-0..6-5), or 7-6 after the tiebreak. */
+/* Every round: first to 6 (6-0..6-5), or 7-6 after the tiebreak. */
 function validScore(p, r){
   const g = gamesTo(r);
   if (p[0] == null || p[1] == null) return "Pick both scores.";
@@ -739,7 +749,7 @@ function checkSetup(x){
   if (!Array.isArray(x.lines) || x.lines.length !== 4 || x.lines.some((ls) => !Array.isArray(ls) || ls.length !== 3 || ls.some((q) => !Array.isArray(q) || q.length !== 4 || q.some((n) => typeof n !== "string" || !n.trim())))) e.push("Every squad needs 3 lines of 4 named players.");
   if (JSON.stringify(x.rounds) !== JSON.stringify(FIXED)) e.push("Rounds 1–3 must be the fixed round robin: Fries v 69ers & Samosas v Naans, Fries v Samosas & 69ers v Naans, Fries v Naans & 69ers v Samosas.");
   const f = x.format || {};
-  if (f.rounds !== 5 || f.waves !== 2 || JSON.stringify(f.gamesTo) !== JSON.stringify([5,5,5,5,6])) e.push("Format must be 5 rounds, 2 waves, sets to 5 in Rounds 1–4 and to 6 in Round 5.");
+  if (f.rounds !== 5) e.push("Format must be 5 rounds.");   // waves and set length are fixed by the scoreboard (FORMAT_V2.md)
   const c = x.courts || {}, cs = [].concat(c.A || [], c.B || []);
   if (!Array.isArray(c.A) || !Array.isArray(c.B) || c.A.length !== 3 || c.B.length !== 3 || new Set(cs).size !== 6 || cs.some((n) => !Number.isInteger(n))) e.push("Courts need 3 for Tie A and 3 for Tie B, six different numbers.");
   if (!Array.isArray(x.pairs) || x.pairs.length !== 5) e.push("Needs lineups (pairs) for all 5 rounds.");
@@ -752,9 +762,10 @@ function checkSetup(x){
     if (!Array.isArray(p) || p.length !== 2 || p.some((w) => !Array.isArray(w) || w.length !== 2)) { e.push(`${where}: needs a wave 1 pair and a wave 2 pair.`); continue; }
     const four = p[0].concat(p[1]);
     if (new Set(four).size !== 4 || four.some((n) => !q.includes(n))) { e.push(`${where}: the two pairs must use that line's four players once each.`); continue; }
-    four.forEach((n) => cnt[n]++);
+    // Rounds 1-3: all four play. Round 4's split covers Rounds 4 and 5 (one pair each), so it counts once for all four.
+    if (r <= R4) four.forEach((n) => cnt[n]++);
   }
-  if (!e.length) Object.entries(cnt).forEach(([n, k]) => { if (k !== 5) e.push(`${n} plays ${k} sets; everyone plays 5.`); });
+  if (!e.length) Object.entries(cnt).forEach(([n, k]) => { if (k !== 4) e.push(`${n} plays ${k} sets in Rounds 1–4; everyone plays 3 in Rounds 1–3 and one in Round 4 or 5.`); });
   return e;
 }
 async function pinHash(v){ try { const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(P + ":" + v)); return [...new Uint8Array(d)].map((x) => x.toString(16).padStart(2, "0")).join(""); } catch(e){ return null; } }
@@ -793,7 +804,8 @@ function bindControl(){
   // Lineups
   all("[data-lr]", (b) => { luRound = Number(b.dataset.lr); luMsg = null; render(); });
   document.querySelectorAll("[data-lu]").forEach((el) => el.onchange = () => { const [r, s, l] = el.dataset.lu.split("|").map(Number), o = splitOpts(SETUP.lines[s][l])[Number(el.value)];
-    editSetup((x) => { x.pairs[r][s][l] = JSON.parse(JSON.stringify(o)); }, { t: `Saved: ${T(s).name} Line ${l + 1}, Round ${r + 1}: wave 1 ${o[0].join(" & ")}, wave 2 ${o[1].join(" & ")}.` }); });
+    editSetup((x) => { x.pairs[r][s][l] = JSON.parse(JSON.stringify(o)); if (r === R4) x.pairs[R5][s][l] = JSON.parse(JSON.stringify([o[1], o[0]])); },
+      { t: r === R4 ? `Saved: ${T(s).name} Line ${l + 1}: ${o[0].join(" & ")} play Round 4, ${o[1].join(" & ")} play Round 5.` : `Saved: ${T(s).name} Line ${l + 1}, Round ${r + 1}: wave 1 ${o[0].join(" & ")}, wave 2 ${o[1].join(" & ")}.` }); });
   document.querySelectorAll("[data-lin]").forEach((el) => el.onchange = () => { const [r, s] = el.dataset.lin.split("|").map(Number);
     editSetup((x) => { x.lineupIn = x.lineupIn || {}; const a = lineupIn(r); a[s] = el.checked; x.lineupIn[r] = a; }, { t: `${T(s).name}: Round ${r + 1} lineup ${el.checked ? "in" : "not in yet"}.` }); });
   all("#release", (b) => { const r = Number(b.dataset.r); if (!arm(b, `Tap again: show Round ${r + 1} on the TV and phones`)) return;
@@ -833,10 +845,10 @@ function postersView(){
   const tools = `<div class="noprint" style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap"><a class="brand" href="#" style="color:inherit;text-decoration:none">${title()}</a><button class="btn" type="button" id="print">Print court sheets</button><span class="muted">One sheet per court, the door QR poster, then one sheet per squad.</span></div>`;
   const pair = (s, p) => `<b>${esc(T(s).name)}</b><br>${esc(p.join(" & "))}`;
   const courts = CO.filter((c) => byCourt[c]).map((c) => { const q = byCourt[c].sort((a, b) => a.r - b.r || a.w - b.w);
-    const later = [R4, R5].flatMap((r) => [0, 1].map((w) => `<tr class="desk"><td class="o">${q.length + (r - R4) * 2 + w + 1}</td><td>Round ${r + 1}<br>Wave ${w + 1}</td><td colspan="2">${esc(STAGE[r])}: matchup from the score desk</td><td class="score"></td></tr>`)).join("");
+    const later = [R4, R5].map((r) => `<tr class="desk"><td class="o">${q.length + (r - R4) + 1}</td><td>Round ${r + 1}</td><td colspan="2">${esc(STAGE[r])}: matchup from the score desk</td><td class="score"></td></tr>`).join("");
     return `<section class="poster"><div class="sheetqr">${QR_SVG}<span>Scan for your next match</span></div><h1>Court ${c}</h1><div class="sub">${esc(SETUP.title || "The Diwali Cup")} · Line ${q[0].l + 1} · play these in order, wave 1 then wave 2</div>
       <table><thead><tr><th>#</th><th>Round</th><th>Home</th><th>Away</th><th class="score">Score</th></tr></thead><tbody>${q.map((m, i) => `<tr><td class="o">${i + 1}</td><td>Round ${m.r + 1}<br>Wave ${m.w + 1}</td><td>${pair(m.h, m.hp)}</td><td>${pair(m.a, m.ap)}</td><td class="score"></td></tr>`).join("")}${later}</tbody></table>
-      <p class="rule"><b>Rounds 4 and 5: matchups from the score desk.</b> Start the next set as soon as this court is free and all four players are here; if a player is still on another court, wait for them. Golden point at deuce. Rounds 1–4: first to 5 games; at 5 all, a four-serve shootout, recorded 6–5. Round 5: first to 6; at 6 all, a 7-point tiebreak, recorded 7–6. After every set the winning squad walks the score to the score desk.</p></section>`; }).join("");
+      <p class="rule"><b>Rounds 4 and 5: matchups from the score desk.</b> Start the next set as soon as this court is free and all four players are here; if a player is still on another court, wait for them. Golden point at deuce. Every set is first to 6 games; at 6 all, a 7-point tiebreak, recorded 7–6. After every set the winning squad walks the score to the score desk.</p></section>`; }).join("");
   const door = `<section class="poster doorqr"><h1>Check in here</h1><div class="sub">Scan, then tap your name. That checks you in and opens your matches: court, partner, opponents and results, live all day.</div>${QR_SVG}<p style="font:700 18px var(--text);margin-top:12px">${esc(BASE.replace(/^https?:\/\//, ""))}#you</p></section>`;
   const cell = (n, s, r) => { const m = M.find((x) => x.r === r && ((x.h === s && x.hp.includes(n)) || (x.a === s && x.ap.includes(n)))); if (!m) return "<td></td>";
     const partner = (m.h === s ? m.hp : m.ap).find((x) => x !== n); return `<td><b>Court ${m.court} · W${m.w + 1}</b><br><span style="color:#555">with ${esc(partner)}</span></td>`; };
