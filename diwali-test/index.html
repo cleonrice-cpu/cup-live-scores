@@ -193,6 +193,8 @@ const SB_KEY = "sb_publishable_xUDMR5r_5RzNRhcjtObyrA_Ww4gphoU";
 const HDR = { apikey: SB_KEY, Authorization: "Bearer " + SB_KEY };
 /* One source, two builds: the live board (dw_*) and a rehearsal copy (dwt_*) with its own data, PIN and phone storage. */
 const TEST = "test" === "test", P = TEST ? "dwt" : "dw";
+/* No PIN prompt: the scoring PIN is built into the page, so the control screen opens straight away. */
+const PIN = "120462";
 const BASE = location.origin + location.pathname;
 const LS = { pin: P + ".pin", pinok: P + ".pinok", me: P + ".me", queue: P + ".queue", ci: P + ".checkin", ciPending: P + ".checkinPending", cache: P + ".cache", setupQ: P + ".setupQ" };
 const $ = (s, el) => (el || document).querySelector(s);
@@ -410,7 +412,7 @@ async function rpc(fn, body){
 }
 let flushing = false;
 async function flush(){
-  const q = lsGet(LS.queue, {}), pin = lsGet(LS.pin, null);
+  const q = lsGet(LS.queue, {}), pin = PIN;
   if (flushing || !pin || !Object.keys(q).length) return;
   flushing = true;
   try {
@@ -432,7 +434,7 @@ async function flush(){
    this laptop until it's sent, so a release made with no signal goes out when the wifi is back. */
 let flushingSetup = false;
 async function flushSetup(){
-  const x = lsGet(LS.setupQ, null), pin = lsGet(LS.pin, null);
+  const x = lsGet(LS.setupQ, null), pin = PIN;
   if (flushingSetup || !x || !pin) return;
   flushingSetup = true;
   try { await rpc("cup_write", { p_key: P + "_setup", p_doc: x, p_pin: pin }); if (JSON.stringify(lsGet(LS.setupQ, null)) === JSON.stringify(x)) lsSet(LS.setupQ, null); online = true; }
@@ -517,7 +519,7 @@ function homeView(){
     <a class="card" href="#you" style="text-decoration:none;color:inherit"><h3>My matches</h3><span class="muted">Players: your court, partner and results</span></a>
     <a class="card" href="#tv" style="text-decoration:none;color:inherit"><h3>TV board</h3><span class="muted">Full screen on the club TV</span></a>
     <a class="card" href="#posters" style="text-decoration:none;color:inherit"><h3>Court sheets</h3><span class="muted">Print and post one on each court</span></a>
-    <a class="card" href="#control" style="text-decoration:none;color:inherit"><h3>Scoring</h3><span class="muted">Score desk laptop only, needs the PIN</span></a>
+    <a class="card" href="#control" style="text-decoration:none;color:inherit"><h3>Scoring</h3><span class="muted">Score desk laptop</span></a>
   </div></div>`;
 }
 const sealedText = (r) => `Round ${r + 1} · ${STAGE[r]}: lineups at the score desk`;
@@ -621,11 +623,11 @@ function bindYou(){
 }
 
 function controlView(){
-  const pin = lsGet(LS.pin, null);
+  const pin = PIN;
   const head = `<div class="wrap ctl"><div class="bar"><a class="brand" href="#" style="color:inherit;text-decoration:none">${title()}</a>${syncHTML()}</div>`;
   if (!pin) return head + `<h1>Scoring</h1><p class="muted">Enter the scoring PIN (on the run-of-show PDF, scoring page, or from Akash). It's saved on this laptop.</p><input class="pin" id="pin" type="password" inputmode="numeric" autocomplete="off" aria-label="PIN"> <button class="btn" type="button" id="pinGo">Unlock</button><div class="msg" id="pinMsg" role="alert"></div></div>`;
   const tab = (k, label) => `<button type="button" data-t="${k}" aria-pressed="${ctlTab === k}">${label}</button>`;
-  const tabs = `<div class="tabs">${tab("courts", "Courts")}${tab("lineups", "Lineups")}${tab("all", "All matches")}${tab("checkin", "Check-in")}${tab("setup", "Load squads")}<button type="button" id="lock" class="btn alt" style="margin-left:auto">Lock this laptop</button></div>`;
+  const tabs = `<div class="tabs">${tab("courts", "Courts")}${tab("lineups", "Lineups")}${tab("all", "All matches")}${tab("checkin", "Check-in")}${tab("setup", "Load squads")}</div>`;
   if (ctlTab === "setup" || !SETUP) return head + `<h1>Scoring</h1>` + tabs + (oldSetup && !SETUP ? `<div class="cc wait" style="margin-bottom:12px"><h3>The squads on the server are in the old 9-round format</h3><p class="muted" style="margin:4px 0 0">Copy the setup again from the updated kit (format v2, 5 rounds) and load it here.</p></div>` : "") + setupPanel() + `</div>`;
   const M = buildMatches(), { st, byCourt } = statusAll(M);
   if (ctlTab === "checkin") {
@@ -811,17 +813,17 @@ function bindControl(){
   all("#ciMiss", () => { ciMissing = !(ciMissing == null ? eventDay() : ciMissing); render(); });
   all("[data-ci]", async (b) => { const n = b.dataset.ci; if (CHECKINS[n] && !arm(b, `Tap again to mark ${n} out`)) return; b.disabled = true; const ok = await checkIn(n, !CHECKINS[n]); render(); if (!ok) { $("#ciMsg").textContent = "Couldn't change that check-in."; $("#ciMsg").className = "msg err"; } });
   all("[data-res]", async (b) => { const n = b.dataset.res; b.disabled = true;
-    try { const r = await rpc(P + "_reserve", { p_name: n, p_on: !RESERVES[n], p_pin: lsGet(LS.pin, "") }); if (r && r.reserve) RESERVES[(r && r.name) || n] = true; else delete RESERVES[(r && r.name) || n]; online = true; saveCache(); render(); }
-    catch(e){ render(); $("#ciMsg").textContent = /pin/i.test(e.message) ? "The PIN on this laptop isn't right. Lock and unlock with the correct PIN." : "Couldn't change that: this laptop is offline. Try again on wifi."; $("#ciMsg").className = "msg err"; } });
+    try { const r = await rpc(P + "_reserve", { p_name: n, p_on: !RESERVES[n], p_pin: PIN }); if (r && r.reserve) RESERVES[(r && r.name) || n] = true; else delete RESERVES[(r && r.name) || n]; online = true; saveCache(); render(); }
+    catch(e){ render(); $("#ciMsg").textContent = /pin/i.test(e.message) ? "The scoreboard refused the change. Reload the page and try again." : "Couldn't change that: this laptop is offline. Try again on wifi."; $("#ciMsg").className = "msg err"; } });
   const ca = $("#clearAll"), ct = $("#clearTxt");
   if (ct) ct.oninput = () => { ca.disabled = ct.value.trim() !== "CLEAR"; };
   if (ca) ca.onclick = async () => { if (TEST ? !arm(ca, "Tap again to clear all " + Object.keys(SCORES.s).length + " scores") : (!ct || ct.value.trim() !== "CLEAR")) return;
-    try { await rpc("cup_write", { p_key: P + "_scores", p_doc:{ s:{}, at:{}, fin:{}, v:3, clearedAt: Date.now() }, p_pin: lsGet(LS.pin, "") }); lsSet(LS.queue, {}); SCORES = { s:{}, at:{}, fin:{} }; saveCache(); reseal(); $("#clearMsg").textContent = "All scores cleared."; $("#clearMsg").className = "msg ok"; }
-    catch(e){ $("#clearMsg").textContent = "Couldn't clear: check the PIN and the connection."; $("#clearMsg").className = "msg err"; } };
+    try { await rpc("cup_write", { p_key: P + "_scores", p_doc:{ s:{}, at:{}, fin:{}, v:3, clearedAt: Date.now() }, p_pin: PIN }); lsSet(LS.queue, {}); SCORES = { s:{}, at:{}, fin:{} }; saveCache(); reseal(); $("#clearMsg").textContent = "All scores cleared."; $("#clearMsg").className = "msg ok"; }
+    catch(e){ $("#clearMsg").textContent = "Couldn't clear: check the connection."; $("#clearMsg").className = "msg err"; } };
   const rt = $("#resetTest");
   if (rt) rt.onclick = async () => { if (!rt.dataset.armed) { rt.dataset.armed = "1"; rt.textContent = "Tap again to reset"; return; }
-    try { await rpc("dwt_reset", { p_pin: lsGet(LS.pin, "") }); lsSet(LS.queue, {}); lsSet(LS.ci, null); SCORES = { s:{}, at:{}, fin:{} }; CHECKINS = {}; saveCache(); reseal(); $("#resetMsg").textContent = "Reset. Ready for a new rehearsal."; $("#resetMsg").className = "msg ok"; rt.textContent = "Reset test data"; delete rt.dataset.armed; }
-    catch(e){ $("#resetMsg").textContent = "Couldn't reset: check the PIN and the connection."; $("#resetMsg").className = "msg err"; } };
+    try { await rpc("dwt_reset", { p_pin: PIN }); lsSet(LS.queue, {}); lsSet(LS.ci, null); SCORES = { s:{}, at:{}, fin:{} }; CHECKINS = {}; saveCache(); reseal(); $("#resetMsg").textContent = "Reset. Ready for a new rehearsal."; $("#resetMsg").className = "msg ok"; rt.textContent = "Reset test data"; delete rt.dataset.armed; }
+    catch(e){ $("#resetMsg").textContent = "Couldn't reset: check the connection."; $("#resetMsg").className = "msg err"; } };
   const sg = $("#setupGo");
   if (sg) sg.onclick = async () => { const msg = $("#setupMsg"); let x;
     try { x = JSON.parse($("#setupIn").value); } catch(e){ msg.textContent = "That isn't a setup code. Copy it again from the kit."; msg.className = "msg err"; return; }
@@ -832,8 +834,8 @@ function bindControl(){
     if (keep) { if (!x.loaded && prev.loaded) x.loaded = prev.loaded; if (!x.released && prev.released) x.released = prev.released; if (!x.lineupIn && prev.lineupIn) x.lineupIn = prev.lineupIn; }
     if (!x.loaded) x.loaded = JSON.parse(JSON.stringify(x.pairs));
     msg.textContent = "Loading…"; msg.className = "msg";
-    try { await rpc("cup_write", { p_key: P + "_setup", p_doc:x, p_pin: lsGet(LS.pin, "") }); SETUP = x; oldSetup = false; lsSet(LS.setupQ, null); saveCache(); msg.textContent = "Loaded. Courts, phones and the TV now show these squads."; msg.className = "msg ok"; setTimeout(() => { ctlTab = "courts"; render(); }, 1200); }
-    catch(e){ msg.textContent = /pin/i.test(e.message) ? "The PIN on this laptop isn't right. Lock and unlock with the correct PIN." : "Couldn't load: this laptop is offline. Try again on wifi."; msg.className = "msg err"; } };
+    try { await rpc("cup_write", { p_key: P + "_setup", p_doc:x, p_pin: PIN }); SETUP = x; oldSetup = false; lsSet(LS.setupQ, null); saveCache(); msg.textContent = "Loaded. Courts, phones and the TV now show these squads."; msg.className = "msg ok"; setTimeout(() => { ctlTab = "courts"; render(); }, 1200); }
+    catch(e){ msg.textContent = /pin/i.test(e.message) ? "The scoreboard refused the change. Reload the page and try again." : "Couldn't load: this laptop is offline. Try again on wifi."; msg.className = "msg err"; } };
 }
 
 function postersView(){
