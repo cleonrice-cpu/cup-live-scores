@@ -266,7 +266,7 @@ function buildMatches(){
   for (let t = 0; t < 2; t++) { const k = lockOf(R5, t), mu = k ? [k.h, k.a] : ok4 ? (t ? [lose(A4), lose(B4)] : [A4.w, B4.w]) : [null, null]; add(R5, t, mu[0], mu[1]); }
   return M;
 }
-/* Standings over rounds before `upto` (default: Rounds 1-4; Round 5 is decided by its own tie totals).
+/* Standings over rounds before `upto` (default: Rounds 1-4, used only if the day ends without finals; the TV shows the Rounds 1-3 seeding).
    Rank: total games won, then game difference, then games won in the sets between the squads still level
    (two squads: their head-to-head games; three or more: games won against the others in that group). */
 function standings(M, upto = R5){
@@ -544,9 +544,12 @@ function tvView(){
       <div class="st">${s.k === "now" ? "<b>Up now</b>" : esc(s.why)}</div>${nxtHTML}${lastHTML}</div>`;
   }).join("");
   const gd = (x) => `${x.gw - x.gl >= 0 ? "+" : ""}${x.gw - x.gl}`;
-  const PL = placings(M), full = PL.every((x) => x != null);
+  const PL = placings(M), full = PL.every((x) => x != null), SD = standings(M, R4);
+  const A4 = tieResult(M, R4, 0), B4 = tieResult(M, R4, 1), nm = (s) => esc(T(s).name), lo = (x) => x.w === x.h ? x.a : x.h;
+  const r5 = !skipped() && A4 && B4 && A4.w != null && B4.w != null && roundDone(M, R4)
+    ? `<div style="font-size:clamp(11px,.9vw,17px);margin-top:.8vh"><b>Round 5</b> · Cup final: ${nm(A4.w)} v ${nm(B4.w)} · Third place: ${nm(lo(A4))} v ${nm(lo(B4))}</div>` : "";
   const stand = full ? `<h2>Final placings</h2><table class="stand"><tbody>${PL.map((s, i) => `<tr><td>${["Cup", "2nd", "3rd", "4th"][i]}</td><td><span class="sw" style="background:${esc(T(s).color)}"></span>${esc(T(s).name)}</td></tr>`).join("")}</tbody></table>`
-    : `<h2>Standings</h2><table class="stand"><thead><tr><td></td><td class="muted">Squad</td><td class="r muted">Games</td><td class="r muted">+/–</td></tr></thead><tbody>${S.map((x, i) => `<tr><td>${i + 1}</td><td><span class="sw" style="background:${esc(T(x.s).color)}"></span>${esc(T(x.s).name)}</td><td class="r">${x.gw}</td><td class="r muted">${gd(x)}</td></tr>`).join("")}</tbody></table><div class="muted" style="font-size:clamp(10px,.8vw,15px);margin-top:.5vh">Rounds 1–4. Total games, then game difference, then head-to-head games</div>`;
+    : `<h2>Seeding</h2><table class="stand"><thead><tr><td></td><td class="muted">Squad</td><td class="r muted">Games</td><td class="r muted">+/–</td></tr></thead><tbody>${SD.map((x, i) => `<tr><td>${i + 1}</td><td><span class="sw" style="background:${esc(T(x.s).color)}"></span>${esc(T(x.s).name)}</td><td class="r">${x.gw}</td><td class="r muted">${gd(x)}</td></tr>`).join("")}</tbody></table><div class="muted" style="font-size:clamp(10px,.8vw,15px);margin-top:.5vh">Rounds 1–3 set Round 4: 1st v 4th, 2nd v 3rd. Total games, then game difference, then head-to-head games</div>${r5}`;
   const same = (a, b) => a && b && a.gw === b.gw && a.cw === b.cw && (a.gw - a.gl) === (b.gw - b.gl);
   const mv = V.map((L, l) => { const tied = L.filter((x) => same(x, L[0])); return `<div><span>Line ${l + 1}: ${L[0] ? esc(tied.map((x) => x.n).join(" and ")) + (tied.length > 1 ? ", tied" : "") : "—"}</span><span class="num">${L[0] ? L[0].gw : ""}</span></div>`; }).join("");
   const prog = pd ? `Champions: <b>${esc(T(pd.w).name)}</b>${pd.third != null ? ` · Third: ${esc(T(pd.third).name)}` : ""}`
@@ -597,14 +600,14 @@ function youView(){
     if (e.sealed) return `<div class="m"><div class="ctn">–<small>court</small></div><div class="who">Round ${e.r + 1} · ${esc(STAGE[e.r])} <span class="pill later">From the desk</span><br><span class="muted">${esc(DESK_NOTE)}</span></div><div></div></div>`;
     const m = e.m, sc = SCORES.s[m.id], s = st[m.id], x = side(m), score = sc ? (x.h ? sc : [sc[1], sc[0]]) : null;
     return `<div class="m ${sc ? "me-done" : ""}"><div class="ctn">${m.court}<small>court</small></div><div class="who">${esc(rlab(m))} <span class="pill ${s.k}">${s.k === "now" ? "Up now" : s.k === "wait" ? "Waiting" : s.k === "done" ? (score[0] > score[1] ? "Won" : "Lost") : "Later"}</span><br>with <b>${esc(x.partner)}</b> v ${esc(x.opp.join(" & "))} <span class="muted">(${esc(T(x.os).name)})</span></div><div class="sc num">${score ? score.join("–") : ""}</div></div>`; }).join("");
-  const S = standings(M), rank = S.findIndex((x) => x.s === me.s) + 1, V = mvp(M)[me.l], vr = V.findIndex((x) => x.n === meName) + 1;
+  const S = standings(M, R4), rank = S.findIndex((x) => x.s === me.s) + 1, V = mvp(M)[me.l], vr = V.findIndex((x) => x.n === meName) + 1;
   const pd = podium(M), pl = placing(M, me.s);
   return `<div class="wrap"><div class="bar"><a class="brand" href="#" style="color:inherit;text-decoration:none">${title()}</a>${syncHTML()}</div>
     <h1>${esc(meName)}</h1><div class="muted"><span class="sw" style="background:${esc(T(me.s).color)}"></span>${esc(T(me.s).name)} · Line ${me.l + 1} of ${SETUP.lines[me.s].length} · <button class="btn alt" type="button" id="notme" style="min-height:32px;padding:4px 12px">Not you?</button></div>
     ${CHECKINS[meName] ? `<div style="margin-top:10px"><span class="pill now">${CHECKINS[meName] === "pending" ? "Checked in, sending when online" : (clock12(CHECKINS[meName]) ? "Checked in at " + esc(clock12(CHECKINS[meName])) : "Checked in")}</span></div>` : ""}
     ${pd ? `<div class="card champ">Champions: <b>${esc(T(pd.w).name)}</b>${pd.third != null ? `<div class="muted" style="font:600 15px var(--text);margin-top:4px">Third place: ${esc(T(pd.third).name)}</div>` : ""}</div>` : ""}
     <div class="grid2"><div>${nextHTML}<h2>Your sets</h2><div class="mlist">${list}</div></div>
-    <div><div class="card" style="margin-top:12px"><h3>Your squad</h3><p style="margin:0">${pl ? `${esc(T(me.s).name)} finished <b>${ord(pl)}</b>.` : Object.keys(SCORES.s).length ? `${esc(T(me.s).name)} is <b>${ord(rank)}</b> on games.` : "Standings start with the first result."}</p></div>
+    <div><div class="card" style="margin-top:12px"><h3>Your squad</h3><p style="margin:0">${pl ? `${esc(T(me.s).name)} finished <b>${ord(pl)}</b>.` : Object.keys(SCORES.s).length ? `${esc(T(me.s).name)} is <b>${ord(rank)}</b> in the seeding (Rounds 1–3).` : "Standings start with the first result."}</p></div>
     <div class="card" style="margin-top:12px"><h3>Line ${me.l + 1} MVP race</h3>${V.slice(0, 5).map((x, i) => `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--rule)${x.n === meName ? ";font-weight:700" : ""}"><span>${i + 1}. ${esc(x.n)}</span><span class="num">${x.gw}</span></div>`).join("") || '<p class="muted" style="margin:0">Starts with the first result.</p>'}${vr > 5 ? `<p class="muted" style="margin:6px 0 0">You're ${ord(vr)}.</p>` : ""}</div></div></div></div>`;
 }
 function bindYou(){
