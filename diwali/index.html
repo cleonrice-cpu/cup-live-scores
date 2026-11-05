@@ -175,9 +175,23 @@ body.tv{overflow:hidden;height:100vh}
 .pstat b{font:800 30px/1 var(--disp)}.pstat span{font-size:13px;color:var(--muted)}
 
 .edit{border-top:5px solid var(--mari)}
-.edgrid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
-.edgrid section{background:var(--sunk);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
-.edgrid h3{margin:0}
+.edtabs{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin:0 0 12px}
+.edtab{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:0 4px;text-align:left;border:1px solid var(--rule);border-radius:12px;background:var(--surface);color:var(--ink);padding:8px 12px;min-height:52px;cursor:pointer;font:inherit}
+.edtab small{grid-column:2;color:var(--muted);font-size:12px}
+.edtab[aria-pressed=true]{border:2px solid var(--mari);background:var(--sunk)}
+.edroster{display:grid;gap:12px}
+.edline{background:var(--sunk);border-radius:12px;padding:10px 12px}
+.edline h3{margin:0 0 6px;font-size:16px}.edline h3 .muted{font-weight:400;font-size:13px;margin-left:6px}
+.edrow{display:grid;grid-template-columns:40px minmax(150px,1fr) 150px 96px auto;gap:6px 8px;align-items:center;padding:6px 0;border-top:1px solid var(--rule)}
+.edrow:first-of-type{border-top:0}.edrow.act{background:var(--surface);border-radius:10px;padding:6px;margin:2px -6px}
+.ednm{display:flex;flex-direction:column;gap:2px;min-width:0}.ednm small{font-size:12px;padding-left:2px}
+.edcapb{width:36px;height:36px;border-radius:50%;border:1px solid var(--rule);background:transparent;color:var(--muted);font-weight:800;cursor:pointer}
+.edcapb[aria-pressed=true]{background:var(--mari);border-color:var(--mari);color:#1B1200}
+.edstrip{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;background:var(--sunk);border-left:3px solid var(--mari);border-radius:8px;padding:8px 10px;font-size:14px}
+.edstrip.drop{border-left-color:var(--bad)}.edstrip .edsel,.edstrip .edin{width:auto;flex:1 1 200px}.edstrip small{flex-basis:100%}
+.edact{display:flex;gap:10px;align-items:center}
+.edmore{margin-top:14px;background:var(--sunk);border-radius:12px;padding:10px 12px}.edmore summary{font-weight:700;cursor:pointer}
+@media (max-width:640px){.edrow{grid-template-columns:40px 1fr 1fr auto;grid-template-areas:"cap nm nm drop" "sq sq ln ln" "st st st st"}.edcapb{grid-area:cap}.ednm{grid-area:nm}[data-eddropb]{grid-area:drop}[data-edsqsel]{grid-area:sq}[data-edlnsel]{grid-area:ln}.edrow>.edstrip{grid-area:st}}
 .edsel,.edin{width:100%;min-height:42px;border:1px solid var(--rule);border-radius:10px;background:var(--surface);padding:6px 10px;font-size:15px}
 .edin.num{width:56px;text-align:center}
 .edr{display:flex;gap:8px;align-items:flex-start;font-size:14px;cursor:pointer}
@@ -242,7 +256,7 @@ input.pin{min-height:48px;border:1px solid var(--rule);border-radius:10px;backgr
 .csline{font:800 44px/1 var(--disp);color:#14112B}
 .muted2{color:#6B6590;font-size:13px}
 .cst{border-top:2.5px solid #14112B}
-.csr{display:grid;grid-template-columns:.42in .95in minmax(0,1fr) .3in minmax(0,1fr) 1.15in;align-items:center;gap:0 10px;min-height:.76in;border-bottom:1px solid #D9D4E8;padding:6px 0}
+.csr{display:grid;grid-template-columns:.42in .95in minmax(0,1fr) .3in minmax(0,1fr);align-items:center;gap:0 10px;min-height:.76in;border-bottom:1px solid #D9D4E8;padding:6px 0}
 .csr.hd{min-height:0;padding:6px 0;font:800 11px var(--text);letter-spacing:.12em;text-transform:uppercase;color:#6B6590;border-bottom:1.5px solid #14112B}
 .csn{font:800 24px var(--disp);color:#14112B;text-align:center}
 .csl{display:flex;flex-direction:column;line-height:1.15}.csl b{font:800 17px var(--disp)}.csl span{font-size:12.5px;color:#6B6590;font-weight:600}
@@ -253,9 +267,6 @@ input.pin{min-height:48px;border:1px solid var(--rule);border-radius:10px;backgr
 .csw{border-bottom:1.5px dashed #B9B2D3;height:.36in;align-self:end;margin-bottom:.1in}
 .csd.note b{color:#14112B}.csd.note span{color:#6B6590;font-size:13px}
 .csv{font:800 13px var(--text);color:#8E88AE;text-align:center}
-.csx{display:flex;align-items:center;gap:6px}
-.csx span{width:.42in;height:.42in;border:1.5px solid #14112B;border-radius:8px}
-.csx em{font-style:normal;font-weight:800;color:#8E88AE}
 .csr.desk{background:#F6F3FB}
 @media print{
   @page{size:letter portrait;margin:.4in}
@@ -296,7 +307,7 @@ const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } ca
 
 /* ---------- state ---------- */
 let SETUP = null, SCORES = { s: {}, at: {}, fin: {} }, CHECKINS = {}, RESERVES = {}, PHONES = {}, SUBS = {}, online = true, lastSeen = 0, pulled = false, oldSetup = false;
-let pName = null, ed = { mode: "replace" }, edMsg = null, panelMsg = null, capDraft = null, capMsg = null, meMsg = null, editId = null, lastSig = "", deferred = false, qVal = "", ffOpen = null, ciMissing = null, pickAt = {}, luRound = 0, luMsg = null;
+let pName = null, ed = { sq: 0 }, edMsg = null, panelMsg = null, capDraft = null, capMsg = null, meMsg = null, editId = null, lastSig = "", deferred = false, qVal = "", ffOpen = null, ciMissing = null, pickAt = {}, luRound = 0, luMsg = null;
 const v2 = (x) => !!(x && x.v === 2);
 /* Last good copy of everything, so a reload with no signal still shows squads, scores and check-ins. */
 (function loadCache(){ const c = lsGet(LS.cache, null); if (c) { SETUP = v2(c.setup) ? c.setup : null; SCORES = Object.assign({ s:{}, at:{}, fin:{} }, c.scores || {}); CHECKINS = c.checkins || {}; RESERVES = c.reserves || {}; PHONES = c.phones || {}; SUBS = c.subs || {}; mergeQueue(); }
@@ -958,27 +969,52 @@ function validScore(p, r){
   if (hi === lo) return `A set can't finish level. ${scoreHint(r)}.`;
   return `Not a finished set: ${g}–0 to ${g}–${g - 1}. ${scoreHint(r)}.`;
 }
-/* Edit squads: rename/replace, swap, captain, courts. Each change runs on the server in one step. */
+/* Edit squads: one roster per squad. Each player row: name box, squad and line dropdowns, captain and drop.
+   Lines always hold four, so a move is a swap with someone in the target line. Each change runs on the server in one step. */
 function editPanel(){
   if (!SETUP) return "";
-  const opt = (sel) => SETUP.teams.map((t, s) => SETUP.lines[s].map((q, l) => `<optgroup label="${esc(t.name)} · Line ${l + 1}">${q.map((n) => `<option value="${esc(n)}" ${sel === n ? "selected" : ""}>${esc(n)}</option>`).join("")}</optgroup>`).join("")).join("");
-  const pick = (id, v) => `<select id="${id}" class="edsel"><option value="">Choose a player…</option>${opt(v)}</select>`;
+  const S = SETUP.teams.length, sq = Math.min(ed.sq || 0, S - 1), R = ed.row || null;
   const C = SETUP.courts || { A: [1, 3, 5], B: [2, 4, 6] };
   const cv = (k, i) => ed["c" + k + i] != null ? ed["c" + k + i] : C[k][i];
-  return `<div class="card edit"><h2>Edit squads</h2><p class="muted" style="margin:0 0 12px">Changes go live at once on the TV, phones, court sheets and this page. Scores already entered stay.</p>
-    <div class="edgrid">
-      <section><h3>Rename or replace a player</h3>${pick("edA", ed.a)}
-        <input id="edB" class="edin" placeholder="New full name" value="${esc(ed.b || "")}" maxlength="60" autocomplete="off">
-        <label class="edr"><input type="radio" name="edMode" value="replace" ${ed.mode !== "fix" ? "checked" : ""}> A different person takes their place (they check in with their own number)</label>
-        <label class="edr"><input type="radio" name="edMode" value="fix" ${ed.mode === "fix" ? "checked" : ""}> Same person, fix the spelling (keeps their check-in and number)</label>
-        <button class="btn sm" type="button" id="edGo">Save name</button></section>
-      <section><h3>Swap two players</h3><p class="muted" style="margin:0 0 6px;font-size:14px">They trade squad, line and every set. Check-ins stay with each person.</p>${pick("swA", ed.sa)}${pick("swB", ed.sb)}
-        <button class="btn sm" type="button" id="swGo">Swap them</button></section>
-      <section><h3>Captains</h3>${SETUP.teams.map((t, k) => `<div class="edcap"><span><span class="sw" style="background:${esc(t.color)}"></span>${esc(nick(k))}</span><select data-capsel="${k}" class="edsel">${SETUP.lines[k].flat().map((n) => `<option value="${esc(n)}" ${(ed["cap" + k] || t.captain) === n ? "selected" : ""}>${esc(n)}</option>`).join("")}</select><button class="btn alt sm" type="button" data-capset="${k}">Set</button></div>`).join("")}</section>
-      <section><h3>Courts</h3><p class="muted" style="margin:0 0 6px;font-size:14px">Court number for each line, Tie A and Tie B.</p>
-        <table class="edct"><tr><td></td><td>Line 1</td><td>Line 2</td><td>Line 3</td></tr>${["A", "B"].map((k) => `<tr><td>Tie ${k}</td>${[0, 1, 2].map((i) => `<td><input class="edin num" data-ct="${k}${i}" inputmode="numeric" maxlength="2" value="${esc(cv(k, i))}"></td>`).join("")}</tr>`).join("")}</table>
-        <button class="btn sm" type="button" id="ctGo">Save courts</button></section>
-    </div><div class="msg${edMsg && edMsg.err ? " err" : edMsg ? " ok" : ""}" id="edMsg" role="alert">${edMsg ? esc(edMsg.t) : ""}</div></div>`;
+  const played = Object.keys((SCORES && SCORES.s) || {}).length > 0;
+  const tabs = SETUP.teams.map((t, s) => `<button type="button" class="edtab" data-edsq="${s}" aria-pressed="${s === sq}"><span class="sw" style="background:${esc(t.color)}"></span><b>${esc(t.name)}</b><small>C ${esc(t.captain || "none")}</small></button>`).join("");
+  const sqOpt = (v) => SETUP.teams.map((t, s) => `<option value="${s}" ${s === v ? "selected" : ""}>${esc(nick(s))}</option>`).join("");
+  const lnOpt = (v) => [0, 1, 2].map((l) => `<option value="${l}" ${l === v ? "selected" : ""}>Line ${l + 1}</option>`).join("");
+  const strip = (n, s, l) => {
+    if (!R || R.n !== n) return `<div class="edstrip" data-nstrip="${esc(n)}" hidden><span>Same person, new spelling? Their check-in stays.</span><span class="edact"><button class="btn sm" type="button" data-edsave="${esc(n)}">Save name</button><button class="lnk" type="button" data-edcancel>Cancel</button></span><small class="muted">A different person? Put the name back and use <b>Drop</b>.</small></div>`;
+    if (R.kind === "name") return `<div class="edstrip" data-nstrip="${esc(n)}"><span>Same person, new spelling? Their check-in stays.</span><span class="edact"><button class="btn sm" type="button" data-edsave="${esc(n)}">Save name</button><button class="lnk" type="button" data-edcancel>Cancel</button></span><small class="muted">A different person? Put the name back and use <b>Drop</b>.</small></div>`;
+    if (R.kind === "move") {
+      const there = SETUP.lines[R.sq][R.ln];
+      return `<div class="edstrip on"><span>Lines stay at four, so <b>${esc(n)}</b> swaps with someone in ${esc(nick(R.sq))} Line ${R.ln + 1}:</span>
+        <select class="edsel" data-edwith="${esc(n)}"><option value="">Swap with…</option>${there.map((m) => `<option value="${esc(m)}" ${R.with === m ? "selected" : ""}>${esc(m)}${rt(m) ? " · " + rt(m) : ""}</option>`).join("")}</select>
+        <span class="edact"><button class="btn sm" type="button" data-edmove="${esc(n)}">Move</button><button class="lnk" type="button" data-edcancel>Cancel</button></span>
+        <small class="muted">They trade squad, line and every set${played ? ", including sets already scored" : ""}. Check-ins stay with each person.</small></div>`;
+    }
+    if (R.kind === "drop") return `<div class="edstrip on drop"><span>Drop <b>${esc(n)}</b> and add:</span>
+        <input class="edin" data-ednew="${esc(n)}" placeholder="New player's full name" value="${esc(R.newName || "")}" maxlength="60" autocomplete="off">
+        <span class="edact"><button class="btn sm" type="button" data-eddrop="${esc(n)}">Drop and add</button><button class="lnk" type="button" data-edcancel>Cancel</button></span>
+        <small class="muted">The new player takes ${esc(n)}'s place in every set and checks in with their own number.</small></div>`;
+    return "";
+  };
+  const row = (n, s, l) => {
+    const cap = SETUP.teams[s].captain === n, moving = R && R.n === n && R.kind === "move";
+    return `<div class="edrow${R && R.n === n ? " act" : ""}">
+      <button type="button" class="edcapb" data-edcap="${esc(n)}" aria-pressed="${cap}" title="${cap ? "Captain" : "Make captain"}" aria-label="${cap ? esc(n) + " is captain" : "Make " + esc(n) + " captain"}">C</button>
+      <label class="ednm"><input class="edin" data-ednm="${esc(n)}" value="${esc(R && R.n === n && R.kind === "name" ? R.val : n)}" maxlength="60" autocomplete="off" aria-label="Name"><small class="muted">${rt(n) ? "Rating " + rt(n) : "No rating"}${CHECKINS[n] ? ` · <span style="color:var(--ok)">checked in</span>` : ""}</small></label>
+      <select class="edsel" data-edsqsel="${esc(n)}" aria-label="Squad">${sqOpt(moving ? R.sq : s)}</select>
+      <select class="edsel" data-edlnsel="${esc(n)}" aria-label="Line">${lnOpt(moving ? R.ln : l)}</select>
+      <button type="button" class="btn alt sm" data-eddropb="${esc(n)}">Drop</button>
+      ${strip(n, s, l)}</div>`;
+  };
+  const lines = SETUP.lines[sq].map((q, l) => `<section class="edline"><h3>Line ${l + 1} <span class="muted">Courts ${esc(cv("A", l))} and ${esc(cv("B", l))}</span></h3>${q.map((n) => row(n, sq, l)).join("")}</section>`).join("");
+  return `<div class="card edit"><h2>Edit squads</h2>
+    <p class="muted" style="margin:0 0 12px">Type over a name to fix it. Change a player's squad or line to move them. <b>Drop</b> replaces a player with someone new. <b>C</b> sets the captain. Every change goes live at once on the TV, phones and court sheets; reprint any court sheet that changed.</p>
+    <div class="edtabs" role="group" aria-label="Squad">${tabs}</div>
+    <div class="msg${edMsg && edMsg.err ? " err" : edMsg ? " ok" : ""}" id="edMsg" role="alert">${edMsg ? esc(edMsg.t) : ""}</div>
+    <div class="edroster">${lines}</div>
+    <details class="edmore"${ed.courtsOpen ? " open" : ""}><summary>Courts</summary><p class="muted" style="margin:6px 0;font-size:14px">Court number for each line, Tie A and Tie B: six different numbers.</p>
+      <table class="edct"><tr><td></td><td>Line 1</td><td>Line 2</td><td>Line 3</td></tr>${["A", "B"].map((k) => `<tr><td>Tie ${k}</td>${[0, 1, 2].map((i) => `<td><input class="edin num" data-ct="${k}${i}" inputmode="numeric" maxlength="2" value="${esc(cv(k, i))}"></td>`).join("")}</tr>`).join("")}</table>
+      <button class="btn sm" type="button" id="ctGo">Save courts</button></details></div>`;
 }
 function setupPanel(){
   // The live board makes you type CLEAR, because practice taught "Reset test data" in this same spot.
@@ -1023,7 +1059,7 @@ function bindControl(){
   const pg = $("#pinGo");
   if (pg) { const go = async () => { const v = $("#pin").value.trim(), say = (t, err) => { $("#pinMsg").textContent = t; $("#pinMsg").className = "msg" + (err ? " err" : ""); }; say("Checking…");
     try { const ok = await rpc(P + "_check_pin", { p_pin: v }); if (ok === true) { lsSet(LS.pin, v); lsSet(LS.pinok, await pinHash(v)); render(); } else say("That PIN isn't right. Check the scoring page of the run-of-show PDF, or ask Akash.", true); }
-    catch(e){ if (/locked/.test(e.message)) return say("Too many wrong PINs, so scoring is locked for up to an hour. Keep scores on the court sheets and enter them after.", true);
+    catch(e){ if (/locked/.test(e.message)) return say("Too many wrong PINs, so scoring is locked for up to an hour. Note scores on paper and enter them after.", true);
       // Offline: accept the last PIN that worked on this laptop. Queued scores send once the signal is back.
       const h = await pinHash(v); if (h && h === lsGet(LS.pinok, null)) { lsSet(LS.pin, v); online = false; render(); return; }
       say("Can't check the PIN: this laptop isn't online. Join the club wifi or a hotspot and try again.", true); } };
@@ -1071,21 +1107,44 @@ function bindControl(){
     try { const r = await rpc(P + "_reserve", { p_name: n, p_on: !RESERVES[n], p_pin: PIN }); if (r && r.reserve) RESERVES[(r && r.name) || n] = true; else delete RESERVES[(r && r.name) || n]; online = true; saveCache(); render(); }
     catch(e){ render(); $("#ciMsg").textContent = /pin/i.test(e.message) ? "The scoreboard refused the change. Reload the page and try again." : "Couldn't change that: this laptop is offline. Try again on wifi."; $("#ciMsg").className = "msg err"; } });
   // Edit squads
-  const keep = (id, k) => { const el = $(id); if (el) el.onchange = el.oninput = () => { ed[k] = el.value; }; };
-  keep("#edA", "a"); keep("#edB", "b"); keep("#swA", "sa"); keep("#swB", "sb");
-  document.querySelectorAll('input[name="edMode"]').forEach((r) => r.onchange = () => { ed.mode = r.value; });
-  document.querySelectorAll("[data-capsel]").forEach((el) => el.onchange = () => { ed["cap" + el.dataset.capsel] = el.value; });
-  document.querySelectorAll("[data-ct]").forEach((el) => el.oninput = () => { ed["c" + el.dataset.ct[0] + el.dataset.ct[1]] = el.value; });
   const say = (t, err) => { edMsg = { t, err }; const m = $("#edMsg"); if (m) { m.textContent = t; m.className = "msg" + (err ? " err" : " ok"); } };
-  const EDERR = { name_taken: "Someone already has that name.", bad_name: "Type a name (no quotes or < >).", unknown_name: "Pick the player(s) first.", not_in_squad: "That player isn't in the squad.", bad_courts: "Courts must be six different numbers." };
-  const run = async (fn, body, ok) => { try { await rpc(P + "_" + fn, Object.assign(body, { p_pin: PIN })); ed = { mode: ed.mode }; say(ok); await pull(); render(); }
+  const EDERR = { name_taken: "Someone already has that name.", bad_name: "Type a full name (no quotes or < >).", unknown_name: "That player isn't on the roster any more: the page has refreshed.", not_in_squad: "That player isn't in the squad.", bad_courts: "Courts must be six different numbers." };
+  const keepEd = () => ({ sq: ed.sq || 0, courtsOpen: ed.courtsOpen });
+  const run = async (fn, body, ok) => { try { await rpc(P + "_" + fn, Object.assign(body, { p_pin: PIN })); ed = keepEd(); say(ok); await pull(); render(); }
     catch(e){ const k = Object.keys(EDERR).find((x) => (e.message || "").includes(x)); say(k ? EDERR[k] : "Couldn't save: check the connection and try again.", true); } };
-  all("#edGo", (b) => { const a = ed.a, nb = (ed.b || "").trim(); if (!a || !nb) return say("Pick a player and type the new name.", true);
-    if (!arm(b, `Tap again: ${a} → ${nb}`)) return; run("roster", { p_op: "rename", p_a: a, p_b: nb, p_keep_phone: ed.mode === "fix" }, `Saved: ${a} is now ${nb} everywhere.`); });
-  all("#swGo", (b) => { const a = ed.sa, c = ed.sb; if (!a || !c || a === c) return say("Pick two different players.", true);
-    if (!arm(b, `Tap again: swap ${a} and ${c}`)) return; run("roster", { p_op: "swap", p_a: a, p_b: c, p_keep_phone: true }, `Swapped: ${a} and ${c} traded places.`); });
-  all("[data-capset]", (b) => { const k = Number(b.dataset.capset), n = ed["cap" + k] || SETUP.teams[k].captain; if (n === SETUP.teams[k].captain) return say(`${n} is already captain.`);
-    if (!arm(b, "Tap again")) return; run("captain", { p_squad: k, p_name: n }, `${n} is now captain of ${SETUP.teams[k].name}.`); });
+  const where = (n) => { for (let s = 0; s < SETUP.lines.length; s++) for (let l = 0; l < 3; l++) if (SETUP.lines[s][l].includes(n)) return [s, l]; return null; };
+  document.querySelectorAll("[data-edsq]").forEach((b) => b.onclick = () => { ed = Object.assign(keepEd(), { sq: Number(b.dataset.edsq) }); edMsg = null; render(); });
+  document.querySelectorAll("[data-edcancel]").forEach((b) => b.onclick = () => { ed = keepEd(); render(); });
+  const ed0 = document.querySelector("details.edmore"); if (ed0) ed0.ontoggle = () => { ed.courtsOpen = ed0.open; };
+  document.querySelectorAll("[data-ednm]").forEach((el) => {
+    const n = el.dataset.ednm, st = document.querySelector(`[data-nstrip="${CSS.escape(n)}"]`);
+    el.oninput = () => { const v = el.value; if (v.trim() === n) { if (ed.row && ed.row.n === n) ed.row = null; if (st) st.hidden = true; return; }
+      if (ed.row && ed.row.n !== n) { ed.row = null; document.querySelectorAll("[data-nstrip]").forEach((x) => { if (x !== st) x.hidden = true; }); }
+      ed.row = { n, kind: "name", val: v }; if (st) st.hidden = false; };
+    el.onkeydown = (e) => { if (e.key === "Enter") { const b = document.querySelector(`[data-edsave="${CSS.escape(n)}"]`); if (b) b.click(); } else if (e.key === "Escape") { el.value = n; ed = keepEd(); if (st) st.hidden = true; } };
+  });
+  all("[data-edsave]", (b) => { const n = b.dataset.edsave, el = document.querySelector(`[data-ednm="${CSS.escape(n)}"]`), nb = ((el && el.value) || "").trim();
+    if (!nb || nb === n) return say("Type the corrected name first.", true);
+    if (!arm(b, "Tap again to save")) return; run("roster", { p_op: "rename", p_a: n, p_b: nb, p_keep_phone: true }, `Saved: ${n} is now ${nb} everywhere.`); });
+  const mv = (n) => { const s = Number(document.querySelector(`[data-edsqsel="${CSS.escape(n)}"]`).value), l = Number(document.querySelector(`[data-edlnsel="${CSS.escape(n)}"]`).value), w = where(n);
+    ed = Object.assign(keepEd(), w && (w[0] !== s || w[1] !== l) ? { row: { n, kind: "move", sq: s, ln: l } } : {}); render(); };
+  document.querySelectorAll("[data-edsqsel]").forEach((el) => el.onchange = () => mv(el.dataset.edsqsel));
+  document.querySelectorAll("[data-edlnsel]").forEach((el) => el.onchange = () => mv(el.dataset.edlnsel));
+  document.querySelectorAll("[data-edwith]").forEach((el) => el.onchange = () => { if (ed.row) ed.row.with = el.value; });
+  all("[data-edmove]", (b) => { const n = b.dataset.edmove, w = ed.row && ed.row.with;
+    if (!w) return say(`Pick who ${n} swaps with.`, true);
+    if (!arm(b, "Tap again to move")) return; run("roster", { p_op: "swap", p_a: n, p_b: w, p_keep_phone: true }, `Moved: ${n} and ${w} traded places.`); });
+  all("[data-eddropb]", (b) => { const n = b.dataset.eddropb; ed = Object.assign(keepEd(), { row: { n, kind: "drop", newName: "" } }); render();
+    const i = document.querySelector(`[data-ednew="${CSS.escape(n)}"]`); if (i) i.focus(); });
+  document.querySelectorAll("[data-ednew]").forEach((el) => { el.oninput = () => { if (ed.row) ed.row.newName = el.value; };
+    el.onkeydown = (e) => { if (e.key === "Enter") { const b = document.querySelector(`[data-eddrop="${CSS.escape(el.dataset.ednew)}"]`); if (b) b.click(); } }; });
+  all("[data-eddrop]", (b) => { const n = b.dataset.eddrop, nb = ((ed.row && ed.row.newName) || "").trim();
+    if (!nb) return say("Type the new player's full name.", true);
+    if (nb === n) return say("That's the same name. To fix a spelling, type over the name instead.", true);
+    if (!arm(b, `Tap again: drop ${n}, add ${nb}`)) return; run("roster", { p_op: "rename", p_a: n, p_b: nb, p_keep_phone: false }, `Done: ${nb} replaces ${n} everywhere.`); });
+  all("[data-edcap]", (b) => { const n = b.dataset.edcap, w = where(n); if (!w) return; if (SETUP.teams[w[0]].captain === n) return say(`${n} is already captain.`);
+    if (!arm(b, "OK?")) return; run("captain", { p_squad: w[0], p_name: n }, `${n} is now captain of ${SETUP.teams[w[0]].name}.`); });
+  document.querySelectorAll("[data-ct]").forEach((el) => el.oninput = () => { ed["c" + el.dataset.ct[0] + el.dataset.ct[1]] = el.value; });
   all("#ctGo", (b) => { const C = SETUP.courts || { A: [1, 3, 5], B: [2, 4, 6] }, v = (k, i) => Number(ed["c" + k + i] != null ? ed["c" + k + i] : C[k][i]);
     const A = [0, 1, 2].map((i) => v("A", i)), B = [0, 1, 2].map((i) => v("B", i));
     if (new Set(A.concat(B)).size !== 6 || A.concat(B).some((x) => !Number.isInteger(x) || x < 1 || x > 99)) return say(EDERR.bad_courts, true);
@@ -1121,13 +1180,12 @@ function postersView(){
     ${pairsFinal() ? "" : `<div class="noprint cc wait" style="margin-bottom:16px"><b>Wait before printing:</b> ${n} of 4 captains have submitted their pairs. These sheets still show default pairs.</div>`}`;
   const side = (s, p) => `<div class="csd"><i style="background:${esc(T(s).color)}"></i><div><b>${esc(T(s).name)}</b><span>${esc(p.join("  &  "))}</span></div></div>`;
   const blank = `<div class="csw"></div>`;
-  const box = `<div class="csx"><span></span><em>–</em><span></span></div>`;
   const courts = [1, 2, 3, 4, 5, 6].filter((c) => byCourt[c]).map((c) => {
     const q = byCourt[c].sort((a, b) => a.r - b.r || a.w - b.w), line = q[0].l + 1, tie = all.find((m) => m.court === c).t;
-    const rows = q.map((m, i) => `<div class="csr"><div class="csn">${i + 1}</div><div class="csl"><b>Round ${m.r + 1}</b><span>Wave ${m.w + 1}</span></div>${side(m.h, m.hp)}<div class="csv">v</div>${side(m.a, m.ap)}${box}</div>`).join("");
-    const later = [R4, R5].flatMap((r) => [0, 1].map((w) => `<div class="csr desk"><div class="csn">${q.length + (r - R4) * 2 + w + 1}</div><div class="csl"><b>Round ${r + 1}</b><span>Wave ${w + 1}</span></div><div class="csd note"><i style="background:#D9D4E8"></i><div><b>${r === R4 ? (tie ? "2nd v 3rd" : "1st v 4th") : (tie ? "Third place" : "Cup final")}</b><span>Matchup from the score desk</span></div></div><div class="csv">v</div>${blank}${box}</div>`)).join("");
+    const rows = q.map((m, i) => `<div class="csr"><div class="csn">${i + 1}</div><div class="csl"><b>Round ${m.r + 1}</b><span>Wave ${m.w + 1}</span></div>${side(m.h, m.hp)}<div class="csv">v</div>${side(m.a, m.ap)}</div>`).join("");
+    const later = [R4, R5].flatMap((r) => [0, 1].map((w) => `<div class="csr desk"><div class="csn">${q.length + (r - R4) * 2 + w + 1}</div><div class="csl"><b>Round ${r + 1}</b><span>Wave ${w + 1}</span></div><div class="csd note"><i style="background:#D9D4E8"></i><div><b>${r === R4 ? (tie ? "2nd v 3rd" : "1st v 4th") : (tie ? "Third place" : "Cup final")}</b><span>Matchup from the score desk</span></div></div><div class="csv">v</div>${blank}</div>`)).join("");
     return `<section class="cs"><header class="csh"><div class="csc"><small>Court</small><b>${c}</b></div><div class="csm"><div class="csline">Line ${line}</div><div>${esc(SETUP.title || "The Diwali Cup")} ${esc(SETUP.subtitle || "")}</div><div class="muted2">Saturday, November 7 · play in order, wave 1 then wave 2</div></div></header>
-      <div class="cst"><div class="csr hd"><div>#</div><div>Round</div><div>Home</div><div></div><div>Away</div><div>Score</div></div>${rows}${later}</div></section>`; }).join("");
+      <div class="cst"><div class="csr hd"><div>#</div><div>Round</div><div>Home</div><div></div><div>Away</div></div>${rows}${later}</div></section>`; }).join("");
   return `<div class="wrap">${tools}${courts}</div>`;
 }
 function bindPosters(){ const p = $("#print"); if (p) p.onclick = () => window.print(); }
