@@ -758,7 +758,6 @@ function checkSetup(x){
     if (!Array.isArray(p) || p.length !== 2 || p.some((w) => !Array.isArray(w) || w.length !== 2)) { e.push(`${where}: needs a wave 1 pair and a wave 2 pair.`); continue; }
     const four = p[0].concat(p[1]);
     if (new Set(four).size !== 4 || four.some((n) => !q.includes(n))) { e.push(`${where}: the two pairs must use that line's four players once each.`); continue; }
-    // Rounds 1-3: all four play. Round 4's split covers Rounds 4 and 5 (one pair each), so it counts once for all four.
     four.forEach((n) => cnt[n]++);
   }
   if (!e.length) Object.entries(cnt).forEach(([n, k]) => { if (k !== 5) e.push(`${n} plays ${k} sets; everyone plays 5.`); });
