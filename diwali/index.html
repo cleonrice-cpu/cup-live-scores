@@ -174,6 +174,16 @@ body.tv{overflow:hidden;height:100vh}
 .pstat div{background:var(--surface);border-radius:12px;padding:10px 16px;display:flex;flex-direction:column;min-width:96px}
 .pstat b{font:800 30px/1 var(--disp)}.pstat span{font-size:13px;color:var(--muted)}
 
+.edit{border-top:5px solid var(--mari)}
+.edgrid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.edgrid section{background:var(--sunk);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.edgrid h3{margin:0}
+.edsel,.edin{width:100%;min-height:42px;border:1px solid var(--rule);border-radius:10px;background:var(--surface);padding:6px 10px;font-size:15px}
+.edin.num{width:56px;text-align:center}
+.edr{display:flex;gap:8px;align-items:flex-start;font-size:14px;cursor:pointer}
+.edcap{display:grid;grid-template-columns:90px minmax(0,1fr) auto;gap:6px;align-items:center;width:100%}
+.edct td{padding:2px 4px;font-size:13px;color:var(--muted)}
+
 /* ---------- control ---------- */
 .ctl-courts{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
 .cc{background:var(--surface);border-radius:12px;padding:14px;border-top:5px solid var(--rule)}
@@ -286,7 +296,7 @@ const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } ca
 
 /* ---------- state ---------- */
 let SETUP = null, SCORES = { s: {}, at: {}, fin: {} }, CHECKINS = {}, RESERVES = {}, PHONES = {}, SUBS = {}, online = true, lastSeen = 0, pulled = false, oldSetup = false;
-let pName = null, panelMsg = null, capDraft = null, capMsg = null, meMsg = null, editId = null, lastSig = "", deferred = false, qVal = "", ffOpen = null, ciMissing = null, pickAt = {}, luRound = 0, luMsg = null;
+let pName = null, ed = { mode: "replace" }, edMsg = null, panelMsg = null, capDraft = null, capMsg = null, meMsg = null, editId = null, lastSig = "", deferred = false, qVal = "", ffOpen = null, ciMissing = null, pickAt = {}, luRound = 0, luMsg = null;
 const v2 = (x) => !!(x && x.v === 2);
 /* Last good copy of everything, so a reload with no signal still shows squads, scores and check-ins. */
 (function loadCache(){ const c = lsGet(LS.cache, null); if (c) { SETUP = v2(c.setup) ? c.setup : null; SCORES = Object.assign({ s:{}, at:{}, fin:{} }, c.scores || {}); CHECKINS = c.checkins || {}; RESERVES = c.reserves || {}; PHONES = c.phones || {}; SUBS = c.subs || {}; mergeQueue(); }
@@ -840,7 +850,7 @@ function controlView(){
   const head = `<div class="wrap ctl"><div class="bar"><a class="brand" href="#" style="color:inherit;text-decoration:none">${title()}</a>${syncHTML()}</div>`;
   if (!pin) return head + `<h1>Scoring</h1><p class="muted">Enter the scoring PIN (on the run-of-show PDF, scoring page, or from Akash). It's saved on this laptop.</p><input class="pin" id="pin" type="password" inputmode="numeric" autocomplete="off" aria-label="PIN"> <button class="btn" type="button" id="pinGo">Unlock</button><div class="msg" id="pinMsg" role="alert"></div></div>`;
   const tab = (k, label) => `<button type="button" data-t="${k}" aria-pressed="${ctlTab === k}">${label}</button>`;
-  const tabs = `<div class="tabs">${tab("courts", "Courts")}${tab("checkin", "Check-in")}${tab("all", "All matches")}${tab("lineups", "Lineups")}${tab("setup", "Setup")}</div>`;
+  const tabs = `<div class="tabs">${tab("courts", "Courts")}${tab("checkin", "Check-in")}${tab("all", "All matches")}${tab("lineups", "Lineups")}${tab("setup", "Edit squads")}</div>`;
   if (ctlTab === "setup" || !SETUP) return head + `<h1>Scoring</h1>` + tabs + (oldSetup && !SETUP ? `<div class="cc wait" style="margin-bottom:12px"><h3>The squads on the server are in the old 9-round format</h3><p class="muted" style="margin:4px 0 0">Copy the setup again from the updated kit (format v2, 5 rounds) and load it here.</p></div>` : "") + setupPanel() + `</div>`;
   const M = buildMatches(), { st, byCourt } = statusAll(M);
   if (ctlTab === "checkin") {
@@ -948,10 +958,32 @@ function validScore(p, r){
   if (hi === lo) return `A set can't finish level. ${scoreHint(r)}.`;
   return `Not a finished set: ${g}–0 to ${g}–${g - 1}. ${scoreHint(r)}.`;
 }
+/* Edit squads: rename/replace, swap, captain, courts. Each change runs on the server in one step. */
+function editPanel(){
+  if (!SETUP) return "";
+  const opt = (sel) => SETUP.teams.map((t, s) => SETUP.lines[s].map((q, l) => `<optgroup label="${esc(t.name)} · Line ${l + 1}">${q.map((n) => `<option value="${esc(n)}" ${sel === n ? "selected" : ""}>${esc(n)}</option>`).join("")}</optgroup>`).join("")).join("");
+  const pick = (id, v) => `<select id="${id}" class="edsel"><option value="">Choose a player…</option>${opt(v)}</select>`;
+  const C = SETUP.courts || { A: [1, 3, 5], B: [2, 4, 6] };
+  const cv = (k, i) => ed["c" + k + i] != null ? ed["c" + k + i] : C[k][i];
+  return `<div class="card edit"><h2>Edit squads</h2><p class="muted" style="margin:0 0 12px">Changes go live at once on the TV, phones, court sheets and this page. Scores already entered stay.</p>
+    <div class="edgrid">
+      <section><h3>Rename or replace a player</h3>${pick("edA", ed.a)}
+        <input id="edB" class="edin" placeholder="New full name" value="${esc(ed.b || "")}" maxlength="60" autocomplete="off">
+        <label class="edr"><input type="radio" name="edMode" value="replace" ${ed.mode !== "fix" ? "checked" : ""}> A different person takes their place (they check in with their own number)</label>
+        <label class="edr"><input type="radio" name="edMode" value="fix" ${ed.mode === "fix" ? "checked" : ""}> Same person, fix the spelling (keeps their check-in and number)</label>
+        <button class="btn sm" type="button" id="edGo">Save name</button></section>
+      <section><h3>Swap two players</h3><p class="muted" style="margin:0 0 6px;font-size:14px">They trade squad, line and every set. Check-ins stay with each person.</p>${pick("swA", ed.sa)}${pick("swB", ed.sb)}
+        <button class="btn sm" type="button" id="swGo">Swap them</button></section>
+      <section><h3>Captains</h3>${SETUP.teams.map((t, k) => `<div class="edcap"><span><span class="sw" style="background:${esc(t.color)}"></span>${esc(nick(k))}</span><select data-capsel="${k}" class="edsel">${SETUP.lines[k].flat().map((n) => `<option value="${esc(n)}" ${(ed["cap" + k] || t.captain) === n ? "selected" : ""}>${esc(n)}</option>`).join("")}</select><button class="btn alt sm" type="button" data-capset="${k}">Set</button></div>`).join("")}</section>
+      <section><h3>Courts</h3><p class="muted" style="margin:0 0 6px;font-size:14px">Court number for each line, Tie A and Tie B.</p>
+        <table class="edct"><tr><td></td><td>Line 1</td><td>Line 2</td><td>Line 3</td></tr>${["A", "B"].map((k) => `<tr><td>Tie ${k}</td>${[0, 1, 2].map((i) => `<td><input class="edin num" data-ct="${k}${i}" inputmode="numeric" maxlength="2" value="${esc(cv(k, i))}"></td>`).join("")}</tr>`).join("")}</table>
+        <button class="btn sm" type="button" id="ctGo">Save courts</button></section>
+    </div><div class="msg${edMsg && edMsg.err ? " err" : edMsg ? " ok" : ""}" id="edMsg" role="alert">${edMsg ? esc(edMsg.t) : ""}</div></div>`;
+}
 function setupPanel(){
   // The live board makes you type CLEAR, because practice taught "Reset test data" in this same spot.
   const clear = TEST ? `<button class="btn alt" type="button" id="clearAll">Clear all scores</button>` : `<input class="pin" id="clearTxt" style="width:160px;font-size:16px;letter-spacing:.05em" placeholder="Type CLEAR" autocomplete="off" aria-label="Type CLEAR to turn on the button"> <button class="btn alt" type="button" id="clearAll" disabled>Clear all scores</button>`;
-  return `<div class="card"><h2>Squads and pairs</h2><p class="muted">Nothing to do here normally: the squads are loaded, and the captains' pairs go live by themselves once all four submit. Only paste a full setup here if Cleon asks you to. Scores already entered stay.</p>
+  return editPanel() + `<div class="card" style="margin-top:16px"><h2>Full setup (advanced)</h2><p class="muted">Nothing to do here normally: the squads are loaded, and the captains' pairs go live by themselves once all four submit. Only paste a full setup here if Cleon asks you to. Scores already entered stay.</p>
     <textarea id="setupIn" aria-label="Scoreboard setup">${SETUP ? esc(JSON.stringify(SETUP)) : ""}</textarea>
     <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="setupGo">Check and load</button></div><div class="msg" id="setupMsg" role="alert"></div></div>
     ${TEST ? `<div class="card" style="margin-top:16px"><h2>Start a fresh rehearsal</h2><p class="muted">Clears test scores and check-ins, and seals Rounds 4 and 5 again. Squads stay loaded.</p><button class="btn alt" type="button" id="resetTest">Reset test data</button><div class="msg${panelMsg && panelMsg.id === "resetMsg" ? " ok" : ""}" id="resetMsg" role="alert">${panelMsg && panelMsg.id === "resetMsg" ? esc(panelMsg.t) : ""}</div></div>` : ""}<div class="card" style="margin-top:16px"><h2>After a practice run</h2><p class="muted">Clears every score entered so far and seals Rounds 4 and 5 again. Use it only after practising, before the real day starts.</p>${clear}<div class="msg${panelMsg && panelMsg.id === "clearMsg" ? " ok" : ""}" id="clearMsg" role="alert">${panelMsg && panelMsg.id === "clearMsg" ? esc(panelMsg.t) : ""}</div></div>`;
@@ -1038,6 +1070,26 @@ function bindControl(){
   all("[data-res]", async (b) => { const n = b.dataset.res; b.disabled = true;
     try { const r = await rpc(P + "_reserve", { p_name: n, p_on: !RESERVES[n], p_pin: PIN }); if (r && r.reserve) RESERVES[(r && r.name) || n] = true; else delete RESERVES[(r && r.name) || n]; online = true; saveCache(); render(); }
     catch(e){ render(); $("#ciMsg").textContent = /pin/i.test(e.message) ? "The scoreboard refused the change. Reload the page and try again." : "Couldn't change that: this laptop is offline. Try again on wifi."; $("#ciMsg").className = "msg err"; } });
+  // Edit squads
+  const keep = (id, k) => { const el = $(id); if (el) el.onchange = el.oninput = () => { ed[k] = el.value; }; };
+  keep("#edA", "a"); keep("#edB", "b"); keep("#swA", "sa"); keep("#swB", "sb");
+  document.querySelectorAll('input[name="edMode"]').forEach((r) => r.onchange = () => { ed.mode = r.value; });
+  document.querySelectorAll("[data-capsel]").forEach((el) => el.onchange = () => { ed["cap" + el.dataset.capsel] = el.value; });
+  document.querySelectorAll("[data-ct]").forEach((el) => el.oninput = () => { ed["c" + el.dataset.ct[0] + el.dataset.ct[1]] = el.value; });
+  const say = (t, err) => { edMsg = { t, err }; const m = $("#edMsg"); if (m) { m.textContent = t; m.className = "msg" + (err ? " err" : " ok"); } };
+  const EDERR = { name_taken: "Someone already has that name.", bad_name: "Type a name (no quotes or < >).", unknown_name: "Pick the player(s) first.", not_in_squad: "That player isn't in the squad.", bad_courts: "Courts must be six different numbers." };
+  const run = async (fn, body, ok) => { try { await rpc(P + "_" + fn, Object.assign(body, { p_pin: PIN })); ed = { mode: ed.mode }; say(ok); await pull(); render(); }
+    catch(e){ const k = Object.keys(EDERR).find((x) => (e.message || "").includes(x)); say(k ? EDERR[k] : "Couldn't save: check the connection and try again.", true); } };
+  all("#edGo", (b) => { const a = ed.a, nb = (ed.b || "").trim(); if (!a || !nb) return say("Pick a player and type the new name.", true);
+    if (!arm(b, `Tap again: ${a} → ${nb}`)) return; run("roster", { p_op: "rename", p_a: a, p_b: nb, p_keep_phone: ed.mode === "fix" }, `Saved: ${a} is now ${nb} everywhere.`); });
+  all("#swGo", (b) => { const a = ed.sa, c = ed.sb; if (!a || !c || a === c) return say("Pick two different players.", true);
+    if (!arm(b, `Tap again: swap ${a} and ${c}`)) return; run("roster", { p_op: "swap", p_a: a, p_b: c, p_keep_phone: true }, `Swapped: ${a} and ${c} traded places.`); });
+  all("[data-capset]", (b) => { const k = Number(b.dataset.capset), n = ed["cap" + k] || SETUP.teams[k].captain; if (n === SETUP.teams[k].captain) return say(`${n} is already captain.`);
+    if (!arm(b, "Tap again")) return; run("captain", { p_squad: k, p_name: n }, `${n} is now captain of ${SETUP.teams[k].name}.`); });
+  all("#ctGo", (b) => { const C = SETUP.courts || { A: [1, 3, 5], B: [2, 4, 6] }, v = (k, i) => Number(ed["c" + k + i] != null ? ed["c" + k + i] : C[k][i]);
+    const A = [0, 1, 2].map((i) => v("A", i)), B = [0, 1, 2].map((i) => v("B", i));
+    if (new Set(A.concat(B)).size !== 6 || A.concat(B).some((x) => !Number.isInteger(x) || x < 1 || x > 99)) return say(EDERR.bad_courts, true);
+    if (!arm(b, "Tap again to save courts")) return; run("courts", { p_a: A, p_b: B }, `Courts saved: Tie A ${A.join(", ")} · Tie B ${B.join(", ")}.`); });
   const ca = $("#clearAll"), ct = $("#clearTxt");
   if (ct) ct.oninput = () => { ca.disabled = ct.value.trim() !== "CLEAR"; };
   if (ca) ca.onclick = async () => { if (TEST ? !arm(ca, "Tap again to clear all " + Object.keys(SCORES.s).length + " scores") : (!ct || ct.value.trim() !== "CLEAR")) return;
