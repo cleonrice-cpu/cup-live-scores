@@ -309,7 +309,7 @@ function tieTotals(M, r, t){
   const sc = ms.filter((m) => SCORES.s[m.id]);
   return { h: ms[0].h, a: ms[0].a, gh: sc.reduce((x, m) => x + SCORES.s[m.id][0], 0), ga: sc.reduce((x, m) => x + SCORES.s[m.id][1], 0), n: sc.length, of: ms.length };
 }
-/* A Round 4 or Round 5 tie: total games across its six sets; level totals are settled by the golden-point decider
+/* A Round 4 or Round 5 tie: total games across its sets (three, one per line); level totals are settled by the golden-point decider
    winner (fin[t].w4 for Round 4, fin[t].w for Round 5). */
 function tieResult(M, r, t){
   const X = tieTotals(M, r, t); if (!X || X.n < X.of) return null;
@@ -665,7 +665,7 @@ function controlView(){
   // Finals: running totals and the decider when a tie ends level.
   if (!skipped()) [0, 1].forEach((t) => { const x = tieTotals(M, R5, t); if (!x || !x.n) return; const F = finalResult(M, t), nm = t ? "Third place" : "Cup final";
     if (F && F.level) top += `<div class="cc wait" style="margin-bottom:12px"><h3>${nm} is level, ${F.gh}–${F.ga}</h3><p class="muted" style="margin:4px 0 8px">All three courts play one golden point at once; best of three wins. Who won?</p>${[F.h, F.a].map((s2) => `<button type="button" class="btn ${F.w === s2 ? "" : "alt"}" data-dec="${R5}|${t}|${s2}" style="margin-right:8px">${esc(T(s2).name)}</button>`).join("")}</div>`;
-    else top += `<div class="cc ${F ? "" : "now"}" style="margin-bottom:12px"><h3>${nm}: <span class="sw" style="background:${esc(T(x.h).color)}"></span>${esc(T(x.h).name)} <span class="num">${x.gh}–${x.ga}</span> <span class="sw" style="background:${esc(T(x.a).color)}"></span>${esc(T(x.a).name)}</h3><p class="muted" style="margin:4px 0 0">${F ? `${esc(T(F.w).name)} ${t ? "take third place" : "win the Cup"}.` : `${x.n} of ${x.of} sets in. Total games across the six sets decide it.`}</p></div>`; });
+    else top += `<div class="cc ${F ? "" : "now"}" style="margin-bottom:12px"><h3>${nm}: <span class="sw" style="background:${esc(T(x.h).color)}"></span>${esc(T(x.h).name)} <span class="num">${x.gh}–${x.ga}</span> <span class="sw" style="background:${esc(T(x.a).color)}"></span>${esc(T(x.a).name)}</h3><p class="muted" style="margin:4px 0 0">${F ? `${esc(T(F.w).name)} ${t ? "take third place" : "win the Cup"}.` : `${x.n} of ${x.of} sets in. Total games across the three sets decide it.`}</p></div>`; });
   if (skipped()) top += `<div class="cc wait" style="margin-bottom:12px"><h3>Finals skipped</h3><p style="margin:4px 0">From the standings after Round 4: Champions <b>${esc(T(S4[0].s).name)}</b> · 2nd ${esc(T(S4[1].s).name)} · Third <b>${esc(T(S4[2].s).name)}</b> · 4th ${esc(T(S4[3].s).name)}.</p><button type="button" class="lnk" id="unskip">Undo: play the finals</button></div>`;
   else if (roundDone(M, R4) && !anyR5) top += `<div class="cc" style="margin-bottom:12px;display:flex;gap:14px;align-items:center;flex-wrap:wrap"><span>Out of time for the finals? Ending now crowns the standings after Round 4: <b>${esc(T(S4[0].s).name)}</b> win the Cup, <b>${esc(T(S4[2].s).name)}</b> take third.</span><button type="button" class="btn alt sm" id="skipFin">End without finals</button></div>`;
   const cards = CO.filter((c) => byCourt[c]).map((c) => {
@@ -695,7 +695,7 @@ function lineupsView(M){
       : `Matchups are set when every Round ${r} score is in (${roundMs(M, r - 1).filter((m) => SCORES.s[m.id]).length} of ${perRound(r - 1)}).`;
     rel = `<div class="cc ${released(r) ? "now" : "wait"}" style="margin-bottom:12px"><h3>Round ${r + 1} · ${esc(STAGE[r])}</h3><p style="margin:4px 0 8px">${mu}</p><div class="ccf">${released(r)
       ? `<span class="pill now">Released</span><span class="muted">The TV and phones show Round ${r + 1}.</span><button type="button" class="lnk" id="unrel" data-r="${r}">Undo release</button>`
-      : `<button type="button" class="btn" id="release" data-r="${r}" ${prevDone && all4 ? "" : "disabled"}>Release Round ${r + 1}</button><span class="muted">${!prevDone ? `Needs every Round ${r} score first.` : !all4 ? `Waiting for lineups: ${esc(SETUP.teams.filter((_, s) => !ins[s]).map((t) => t.name).join(", "))}.` : "All four lineups are in. Releasing shows the round on the TV and phones."}</span>`}</div></div>`;
+      : `<button type="button" class="btn" id="release" data-r="${r}" ${prevDone && all4 && A && A.h != null ? "" : "disabled"}>Release Round ${r + 1}</button><span class="muted">${!prevDone ? `Needs every Round ${r} score first.` : !(A && A.h != null) ? "A Round 4 tie is level: enter the golden-point decider on the Courts tab first." : !all4 ? `Waiting for lineups: ${esc(SETUP.teams.filter((_, s) => !ins[s]).map((t) => t.name).join(", "))}.` : "All four lineups are in. Releasing shows the round on the TV and phones."}</span>`}</div></div>`;
   }
   const cards = SETUP.teams.map((tm, s) => {
     const ch = changedLines(r, s);
